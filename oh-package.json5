@@ -1,0 +1,13 @@
+{
+  "modelVersion": "6.1.0",
+  "name": "openvpn-harmony",
+  "version": "0.1.0",
+  "description": "OpenVPN client for HarmonyOS NEXT (phone + 2-in-1 PC).",
+  "license": "AGPL-3.0-or-later",
+  "main": "",
+  "author": "openvpn-oh contributors",
+  "dependencies": {},
+  "devDependencies": {
+    "@ohos/hypium": "1.0.21"
+  }
+}

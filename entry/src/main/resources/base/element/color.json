@@ -1,0 +1,14 @@
+{
+  "color": [
+    { "name": "start_bg", "value": "#F1F3F5" },
+    { "name": "brand_primary", "value": "#0A84FF" },
+    { "name": "brand_on_primary", "value": "#FFFFFF" },
+    { "name": "status_connected", "value": "#34C759" },
+    { "name": "status_warn", "value": "#FF9500" },
+    { "name": "status_error", "value": "#FF3B30" },
+    { "name": "surface", "value": "#FFFFFF" },
+    { "name": "surface_dim", "value": "#F1F3F5" },
+    { "name": "on_surface", "value": "#111418" },
+    { "name": "on_surface_dim", "value": "#5F6368" }
+  ]
+}

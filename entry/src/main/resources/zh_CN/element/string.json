@@ -1,0 +1,48 @@
+{
+  "string": [
+    { "name": "app_name", "value": "OpenVPN" },
+    { "name": "module_desc", "value": "OpenVPN 客户端模块" },
+    { "name": "entry_ability_desc", "value": "OpenVPN 客户端" },
+    { "name": "vpn_service_label", "value": "OpenVPN 隧道" },
+    { "name": "vpn_service_desc", "value": "运行 OpenVPN 隧道的后台服务" },
+
+    { "name": "title_profiles", "value": "配置文件" },
+    { "name": "title_import", "value": "导入 .ovpn 配置" },
+    { "name": "title_logs", "value": "日志" },
+    { "name": "title_detail", "value": "配置详情" },
+
+    { "name": "action_connect", "value": "连接" },
+    { "name": "action_disconnect", "value": "断开" },
+    { "name": "action_import_file", "value": "选择 .ovpn 文件" },
+    { "name": "action_import_paste", "value": "粘贴配置文本" },
+    { "name": "action_save", "value": "保存" },
+    { "name": "action_delete", "value": "删除" },
+    { "name": "action_cancel", "value": "取消" },
+
+    { "name": "status_disconnected", "value": "未连接" },
+    { "name": "status_resolving", "value": "解析中" },
+    { "name": "status_tcp_connect", "value": "正在连接 (TCP)" },
+    { "name": "status_wait", "value": "等待服务器" },
+    { "name": "status_auth", "value": "身份验证" },
+    { "name": "status_get_config", "value": "接收配置" },
+    { "name": "status_assign_ip", "value": "分配 IP" },
+    { "name": "status_add_routes", "value": "添加路由" },
+    { "name": "status_connected", "value": "已连接" },
+    { "name": "status_reconnecting", "value": "重新连接中" },
+    { "name": "status_paused", "value": "已暂停" },
+    { "name": "status_error", "value": "错误" },
+
+    { "name": "label_remote", "value": "服务器" },
+    { "name": "label_protocol", "value": "协议" },
+    { "name": "label_cipher", "value": "加密算法" },
+    { "name": "label_bytes_in", "value": "已接收" },
+    { "name": "label_bytes_out", "value": "已发送" },
+    { "name": "label_duration", "value": "连接时长" },
+    { "name": "label_username", "value": "用户名" },
+    { "name": "label_password", "value": "密码" },
+    { "name": "label_save_credentials", "value": "记住凭据" },
+
+    { "name": "empty_profiles", "value": "暂无配置。导入 .ovpn 文件开始使用。" },
+    { "name": "empty_logs", "value": "日志为空。连接一次后可查看日志。" }
+  ]
+}

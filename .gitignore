@@ -1,0 +1,34 @@
+# DevEco / hvigor build artifacts
+.hvigor/
+.idea/
+.cxx/
+build/
+oh_modules/
+local.properties
+*.har
+*.hap
+*.hsp
+*.app
+
+# Signing material
+*.p12
+*.csr
+*.cer
+*.p7b
+*.jks
+signing-configs.json
+
+# Third-party native sources are vendored via submodule / fetch step
+entry/src/main/cpp/third_party/openvpn3/
+entry/src/main/cpp/third_party/asio/
+entry/src/main/cpp/third_party/mbedtls/
+entry/src/main/cpp/third_party/lz4/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~

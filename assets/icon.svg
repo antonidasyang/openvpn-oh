@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1A8DFF"/>
+      <stop offset="1" stop-color="#003E99"/>
+    </linearGradient>
+    <linearGradient id="shield" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DCE9F7"/>
+    </linearGradient>
+    <linearGradient id="keyhole" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#003E99"/>
+      <stop offset="1" stop-color="#0A4FD0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- HarmonyOS-style rounded square (~22% corner radius) -->
+  <rect width="1024" height="1024" rx="224" ry="224" fill="url(#bg)"/>
+
+  <!-- Subtle highlight at the top edge for depth -->
+  <rect width="1024" height="320" rx="224" ry="224" fill="rgba(255,255,255,0.08)"/>
+
+  <!-- Shield -->
+  <path d="M512 168
+           L832 268
+           L832 540
+           Q832 720 660 808
+           Q582 848 512 868
+           Q442 848 364 808
+           Q192 720 192 540
+           L192 268
+           Z"
+        fill="url(#shield)"/>
+
+  <!-- Soft inner outline on the shield -->
+  <path d="M512 168
+           L832 268
+           L832 540
+           Q832 720 660 808
+           Q582 848 512 868
+           Q442 848 364 808
+           Q192 720 192 540
+           L192 268
+           Z"
+        fill="none"
+        stroke="rgba(0,30,80,0.15)"
+        stroke-width="3"/>
+
+  <!-- Keyhole — head -->
+  <circle cx="512" cy="448" r="70" fill="url(#keyhole)"/>
+  <!-- Keyhole — tail (rounded, overlaps the circle so the silhouette is one piece) -->
+  <rect x="474" y="468" width="76" height="232" rx="20" ry="20" fill="url(#keyhole)"/>
+</svg>

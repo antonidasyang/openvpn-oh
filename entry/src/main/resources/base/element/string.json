@@ -1,0 +1,48 @@
+{
+  "string": [
+    { "name": "app_name", "value": "OpenVPN" },
+    { "name": "module_desc", "value": "OpenVPN client module" },
+    { "name": "entry_ability_desc", "value": "OpenVPN client" },
+    { "name": "vpn_service_label", "value": "OpenVPN tunnel" },
+    { "name": "vpn_service_desc", "value": "Background service that runs the OpenVPN tunnel" },
+
+    { "name": "title_profiles", "value": "Profiles" },
+    { "name": "title_import", "value": "Import .ovpn config" },
+    { "name": "title_logs", "value": "Logs" },
+    { "name": "title_detail", "value": "Profile" },
+
+    { "name": "action_connect", "value": "Connect" },
+    { "name": "action_disconnect", "value": "Disconnect" },
+    { "name": "action_import_file", "value": "Choose .ovpn file" },
+    { "name": "action_import_paste", "value": "Paste config text" },
+    { "name": "action_save", "value": "Save" },
+    { "name": "action_delete", "value": "Delete" },
+    { "name": "action_cancel", "value": "Cancel" },
+
+    { "name": "status_disconnected", "value": "Disconnected" },
+    { "name": "status_resolving", "value": "Resolving" },
+    { "name": "status_tcp_connect", "value": "Connecting (TCP)" },
+    { "name": "status_wait", "value": "Waiting for server" },
+    { "name": "status_auth", "value": "Authenticating" },
+    { "name": "status_get_config", "value": "Receiving config" },
+    { "name": "status_assign_ip", "value": "Assigning IP" },
+    { "name": "status_add_routes", "value": "Adding routes" },
+    { "name": "status_connected", "value": "Connected" },
+    { "name": "status_reconnecting", "value": "Reconnecting" },
+    { "name": "status_paused", "value": "Paused" },
+    { "name": "status_error", "value": "Error" },
+
+    { "name": "label_remote", "value": "Remote" },
+    { "name": "label_protocol", "value": "Protocol" },
+    { "name": "label_cipher", "value": "Cipher" },
+    { "name": "label_bytes_in", "value": "Received" },
+    { "name": "label_bytes_out", "value": "Sent" },
+    { "name": "label_duration", "value": "Up for" },
+    { "name": "label_username", "value": "Username" },
+    { "name": "label_password", "value": "Password" },
+    { "name": "label_save_credentials", "value": "Remember credentials" },
+
+    { "name": "empty_profiles", "value": "No profiles yet. Import a .ovpn file to get started." },
+    { "name": "empty_logs", "value": "Log buffer is empty. Connect once to see entries here." }
+  ]
+}

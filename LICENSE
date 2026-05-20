@@ -1,0 +1,18 @@
+                    GNU AFFERO GENERAL PUBLIC LICENSE
+                       Version 3, 19 November 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+This project links against the OpenVPN 3 client library, which is
+distributed under the GNU Affero General Public License v3.0.
+For that reason, this project is also distributed under AGPLv3.
+
+The full text of the GNU AGPLv3 license is available at:
+
+    https://www.gnu.org/licenses/agpl-3.0.txt
+
+You should have received a copy of the GNU Affero General Public
+License along with this program. If not, fetch a copy from the URL
+above before distributing builds of this software.

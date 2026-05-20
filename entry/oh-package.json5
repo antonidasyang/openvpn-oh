@@ -1,0 +1,11 @@
+{
+  "name": "entry",
+  "version": "0.1.0",
+  "description": "OpenVPN HarmonyOS NEXT client entry module",
+  "main": "",
+  "author": "openvpn-oh contributors",
+  "license": "AGPL-3.0-or-later",
+  "dependencies": {
+    "libovpnclient.so": "file:./src/main/cpp/types/libovpnclient"
+  }
+}

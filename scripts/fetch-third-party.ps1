@@ -11,18 +11,31 @@ Set-Location $third
 
 function Clone-Dep {
     param([string]$Url, [string]$Dir, [string]$Ref)
-    if (Test-Path (Join-Path $Dir '.git')) {
-        Write-Host "[skip] $Dir already exists"
-        return
+    if (-not (Test-Path (Join-Path $Dir '.git'))) {
+        Write-Host "[clone] $Url -> $Dir @ $Ref"
+        & git clone --depth 1 --branch $Ref $Url $Dir
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "[fallback] full clone of $Url"
+            & git clone $Url $Dir
+            if ($LASTEXITCODE -ne 0) { throw "clone failed for $Url" }
+            Push-Location $Dir
+            & git checkout $Ref
+            Pop-Location
+        }
+    } else {
+        Write-Host "[skip] $Dir clone exists"
     }
-    Write-Host "[clone] $Url -> $Dir @ $Ref"
-    & git clone --depth 1 --branch $Ref $Url $Dir
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "[fallback] full clone of $Url"
-        & git clone $Url $Dir
-        if ($LASTEXITCODE -ne 0) { throw "clone failed for $Url" }
+    # mbedtls v3.6+ requires the `framework/` submodule even for non-test
+    # builds. Always sync submodules so re-runs pick up anything missed
+    # by an older script invocation.
+    if (Test-Path (Join-Path $Dir '.gitmodules')) {
+        Write-Host "[submodules] $Dir"
         Push-Location $Dir
-        & git checkout $Ref
+        & git submodule update --init --recursive
+        if ($LASTEXITCODE -ne 0) {
+            Pop-Location
+            throw "submodule update failed for $Dir"
+        }
         Pop-Location
     }
 }

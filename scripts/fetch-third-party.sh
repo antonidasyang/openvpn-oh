@@ -13,12 +13,19 @@ cd "$THIRD"
 clone() {
   local url=$1 dir=$2 ref=$3
   if [[ -d "$dir/.git" ]]; then
-    echo "[skip] $dir already exists"
-    return
+    echo "[skip] $dir clone exists"
+  else
+    echo "[clone] $url -> $dir @ $ref"
+    git clone --depth 1 --branch "$ref" "$url" "$dir" || git clone "$url" "$dir"
+    ( cd "$dir" && git checkout "$ref" )
   fi
-  echo "[clone] $url -> $dir @ $ref"
-  git clone --depth 1 --branch "$ref" "$url" "$dir" || git clone "$url" "$dir"
-  ( cd "$dir" && git checkout "$ref" )
+  # mbedtls v3.6+ requires the `framework/` submodule even for non-test builds.
+  # Always sync submodules so re-running the script picks up anything missed
+  # by an older invocation.
+  if [[ -f "$dir/.gitmodules" ]]; then
+    echo "[submodules] $dir"
+    ( cd "$dir" && git submodule update --init --recursive )
+  fi
 }
 
 clone https://github.com/OpenVPN/openvpn3.git openvpn3 release/3.10

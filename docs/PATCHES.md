@@ -33,6 +33,33 @@ Each entry should include:
 - Reported upstream? link to issue/PR if so
 ```
 
+## Applied
+
+### mbedtls -Werror + OHOS NDK `--gcc-toolchain` warning
+
+**Symptom**
+Every mbedtls .c file fails with:
+```
+clang: error: argument unused during compilation: '--gcc-toolchain=...'
+       [-Werror,-Wunused-command-line-argument]
+```
+
+**Root cause**
+The OHOS NDK toolchain file (`hmos.toolchain.cmake`) unconditionally passes
+`--gcc-toolchain=...` to clang, but the NDK is a pure-clang toolchain that
+ignores the flag. clang warns about it; mbedtls's CMake build sets `-Werror`;
+warning becomes fatal.
+
+**Fix** (in our `entry/src/main/cpp/CMakeLists.txt`, not in mbedtls)
+1. `add_compile_options(-Wno-unused-command-line-argument)` near the top so it
+   propagates to every target defined later (including mbedtls's subdirectory).
+2. `set(MBEDTLS_FATAL_WARNINGS OFF CACHE BOOL "" FORCE)` before the mbedtls
+   `add_subdirectory()` as a belt-and-braces guard.
+
+**Notes**
+- Not OHOS-specific to mbedtls; any vendored lib with `-Werror` would hit this.
+- Reported upstream? No — this is an OHOS NDK quirk, not an mbedtls bug.
+
 ## Known suspects (not yet confirmed)
 
 These are likely-but-unverified rough edges. Verify, then either remove from

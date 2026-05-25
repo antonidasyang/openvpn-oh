@@ -17,6 +17,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# The OHOS NDK toolchain file always passes `--gcc-toolchain=...` to clang,
+# but clang has no use for it (the NDK is a pure-clang toolchain) and emits
+# `-Wunused-command-line-argument`. mbedtls and other vendored libs build
+# with `-Werror`, so the warning becomes a fatal error on every TU.
+# Suppress it project-wide before any add_subdirectory() so it propagates to
+# all targets defined below.
+add_compile_options(-Wno-unused-command-line-argument)
+
 set(NATIVERENDER_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 set(THIRD_PARTY ${NATIVERENDER_ROOT_PATH}/third_party)
 
@@ -36,6 +44,8 @@ set(ENABLE_PROGRAMS  OFF CACHE BOOL "" FORCE)
 set(ENABLE_TESTING   OFF CACHE BOOL "" FORCE)
 set(USE_SHARED_MBEDTLS_LIBRARY OFF CACHE BOOL "" FORCE)
 set(USE_STATIC_MBEDTLS_LIBRARY ON  CACHE BOOL "" FORCE)
+# Belt-and-braces: also tell mbedtls itself to not promote warnings to errors.
+set(MBEDTLS_FATAL_WARNINGS OFF CACHE BOOL "" FORCE)
 add_subdirectory(${MBEDTLS} mbedtls_build EXCLUDE_FROM_ALL)
 
 # ----- lz4 (single source file, static) -----

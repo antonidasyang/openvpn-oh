@@ -4,7 +4,7 @@ import { common, Want } from '@kit.AbilityKit';
 import { BusinessError } from '@ohos.base';
 
 import { Profile } from '../model/Profile';
-import { VpnState, Phase } from '../model/VpnState';
+import { VpnState, Phase, Stats } from '../model/VpnState';
 import {
   EV_COMMAND_CONNECT, EV_COMMAND_STOP, EV_COMMAND_PAUSE, EV_COMMAND_RESUME, EV_COMMAND_CREDS,
   EV_STATE_CHANGED, EV_LOG_LINE, EV_STATS_UPDATE,
@@ -50,13 +50,14 @@ class VpnControllerImpl {
       events: [EV_STATE_CHANGED, EV_LOG_LINE, EV_STATS_UPDATE],
     };
     this.subscriber = await commonEventManager.createSubscriber(info);
-    commonEventManager.subscribe(this.subscriber, (err, data) => {
-      if (err) {
-        log.error('subscribe error', err as Object);
-        return;
-      }
-      this.handleEvent(data);
-    });
+    commonEventManager.subscribe(this.subscriber,
+      (err: BusinessError, data: commonEventManager.CommonEventData): void => {
+        if (err) {
+          log.error('subscribe error', err);
+          return;
+        }
+        this.handleEvent(data);
+      });
   }
 
   async dispose(): Promise<void> {
@@ -74,32 +75,34 @@ class VpnControllerImpl {
     VpnState.setPhase('RESOLVE', 'starting tunnel');
     VpnState.lastError = '';
 
+    const params: Record<string, Object> = {
+      'action': 'connect',
+      'profileId': profile.id,
+    };
     const want: Want = {
       bundleName: this.context.abilityInfo.bundleName,
       abilityName: 'OvpnVpnExtensionAbility',
-      parameters: <Record<string, Object>>{
-        'action': 'connect',
-        'profileId': profile.id,
-      },
+      parameters: params,
     };
 
     try {
       await vpnExtension.startVpnExtensionAbility(want);
-      // Also publish a command event in case the ability is already running
-      // and we are sending a follow-up connect after a stop.
       const payload: ConnectCommandPayload = { profileId: profile.id };
-      await this.publish(EV_COMMAND_CONNECT, { data: JSON.stringify(payload) });
+      const opts: commonEventManager.CommonEventPublishData = { data: JSON.stringify(payload) };
+      await this.publish(EV_COMMAND_CONNECT, opts);
     } catch (e) {
       const err = e as BusinessError;
       log.error('startVpnExtensionAbility failed', err);
-      VpnState.setError(`Failed to start VPN: ${err.message ?? err}`);
-      throw e;
+      const msg = err.message ?? String(err);
+      VpnState.setError(`Failed to start VPN: ${msg}`);
+      throw new Error(msg);
     }
   }
 
   async stop(): Promise<void> {
     if (!this.context) return;
-    await this.publish(EV_COMMAND_STOP, {});
+    const empty: commonEventManager.CommonEventPublishData = {};
+    await this.publish(EV_COMMAND_STOP, empty);
     const want: Want = {
       bundleName: this.context.abilityInfo.bundleName,
       abilityName: 'OvpnVpnExtensionAbility',
@@ -112,59 +115,60 @@ class VpnControllerImpl {
   }
 
   async pause(reason: string = 'user'): Promise<void> {
-    await this.publish(EV_COMMAND_PAUSE, { data: reason });
+    const opts: commonEventManager.CommonEventPublishData = { data: reason };
+    await this.publish(EV_COMMAND_PAUSE, opts);
   }
 
   async resume(): Promise<void> {
-    await this.publish(EV_COMMAND_RESUME, {});
+    const empty: commonEventManager.CommonEventPublishData = {};
+    await this.publish(EV_COMMAND_RESUME, empty);
   }
 
   async submitCreds(username: string, password: string, cache: boolean): Promise<void> {
     const payload: CredsCommandPayload = { username, password, cachePassword: cache };
-    await this.publish(EV_COMMAND_CREDS, { data: JSON.stringify(payload) });
+    const opts: commonEventManager.CommonEventPublishData = { data: JSON.stringify(payload) };
+    await this.publish(EV_COMMAND_CREDS, opts);
   }
 
   // ----- Event handling -----
 
   private handleEvent(data: commonEventManager.CommonEventData): void {
-    switch (data.event) {
-      case EV_STATE_CHANGED: {
-        try {
-          const p = JSON.parse(data.data ?? '{}') as StateChangedPayload;
-          const phase = PHASE_MAP[p.phase] ?? 'ERROR';
-          VpnState.setPhase(phase, p.info);
-          if (p.errorCode > 0) VpnState.lastError = p.info;
-          if (p.profileId) VpnState.activeProfileId = p.profileId;
-          if (p.profileName) VpnState.activeProfileName = p.profileName;
-        } catch (e) {
-          log.warn('bad state payload', e as Object);
-        }
-        return;
+    if (data.event === EV_STATE_CHANGED) {
+      try {
+        const p = JSON.parse(data.data ?? '{}') as StateChangedPayload;
+        const phase = PHASE_MAP[p.phase] ?? 'ERROR';
+        VpnState.setPhase(phase, p.info);
+        if (p.errorCode > 0) VpnState.lastError = p.info;
+        if (p.profileId) VpnState.activeProfileId = p.profileId;
+        if (p.profileName) VpnState.activeProfileName = p.profileName;
+      } catch (e) {
+        log.warn('bad state payload', e as Object);
       }
-      case EV_LOG_LINE: {
-        VpnState.appendLog(data.data ?? '');
-        return;
-      }
-      case EV_STATS_UPDATE: {
-        try {
-          const s = JSON.parse(data.data ?? '{}') as StatsPayload;
-          VpnState.setStats({
-            bytesIn:    BigInt(s.bytesIn),
-            bytesOut:   BigInt(s.bytesOut),
-            packetsIn:  BigInt(s.packetsIn),
-            packetsOut: BigInt(s.packetsOut),
-          });
-        } catch (e) {
-          log.warn('bad stats payload', e as Object);
-        }
-        return;
+      return;
+    }
+    if (data.event === EV_LOG_LINE) {
+      VpnState.appendLog(data.data ?? '');
+      return;
+    }
+    if (data.event === EV_STATS_UPDATE) {
+      try {
+        const s = JSON.parse(data.data ?? '{}') as StatsPayload;
+        const stats: Stats = {
+          bytesIn:    BigInt(s.bytesIn),
+          bytesOut:   BigInt(s.bytesOut),
+          packetsIn:  BigInt(s.packetsIn),
+          packetsOut: BigInt(s.packetsOut),
+        };
+        VpnState.setStats(stats);
+      } catch (e) {
+        log.warn('bad stats payload', e as Object);
       }
     }
   }
 
   private async publish(event: string, opts: commonEventManager.CommonEventPublishData): Promise<void> {
-    await new Promise<void>((resolve, reject) => {
-      commonEventManager.publish(event, opts, (err) => {
+    await new Promise<void>((resolve: () => void, reject: (e: BusinessError) => void): void => {
+      commonEventManager.publish(event, opts, (err: BusinessError): void => {
         if (err) reject(err); else resolve();
       });
     });

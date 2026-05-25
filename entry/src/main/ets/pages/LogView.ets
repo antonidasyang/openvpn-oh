@@ -1,10 +1,10 @@
 import { router } from '@kit.ArkUI';
-import { VpnState } from '../model/VpnState';
+import { VpnState, VpnStateData } from '../model/VpnState';
 
 @Entry
-@Component
+@ComponentV2
 struct LogView {
-  @Local private state = VpnState;
+  @Local private state: VpnStateData = VpnState;
   private scroller: Scroller = new Scroller();
 
   build() {
@@ -20,7 +20,7 @@ struct LogView {
         .justifyContent(FlexAlign.Center)
       } else {
         List({ space: 0, scroller: this.scroller }) {
-          ForEach(this.state.logLines, (line: string, idx: number) => {
+          ForEach(this.state.logLines, (line: string, idx: number): void => {
             ListItem() {
               Text(line)
                 .fontFamily('HarmonyOS Sans Mono')
@@ -29,7 +29,7 @@ struct LogView {
                 .width('100%')
                 .padding({ left: 12, right: 12, top: 2, bottom: 2 })
             }
-          }, (line: string, idx: number) => `${idx}-${line.length}`)
+          }, (line: string, idx: number): string => `${idx}-${line.length}`)
         }
         .layoutWeight(1)
         .backgroundColor($r('app.color.surface'))
@@ -43,27 +43,21 @@ struct LogView {
   @Builder
   private TopBar() {
     Row() {
-      Button({ type: ButtonType.Circle }) {
-        Image($r('sys.media.ohos_ic_public_back'))
-          .width(20).height(20)
-          .fillColor($r('app.color.on_surface'))
-      }
-      .width(40).height(40)
-      .backgroundColor(Color.Transparent)
-      .onClick(() => router.back())
+      Button('<')
+        .width(40).height(40)
+        .backgroundColor(Color.Transparent)
+        .fontColor($r('app.color.on_surface'))
+        .onClick((): void => { router.back(); })
       Text($r('app.string.title_logs'))
         .fontSize(18).fontWeight(FontWeight.Bold)
         .margin({ left: 8 })
         .fontColor($r('app.color.on_surface'))
         .layoutWeight(1)
-      Button({ type: ButtonType.Circle }) {
-        Image($r('sys.media.ohos_ic_public_delete'))
-          .width(20).height(20)
-          .fillColor($r('app.color.on_surface'))
-      }
-      .width(40).height(40)
-      .backgroundColor(Color.Transparent)
-      .onClick(() => { this.state.logLines = []; })
+      Button('Clear')
+        .height(36)
+        .backgroundColor(Color.Transparent)
+        .fontColor($r('app.color.on_surface'))
+        .onClick((): void => { this.state.logLines = []; })
     }
     .padding(16).width('100%')
   }

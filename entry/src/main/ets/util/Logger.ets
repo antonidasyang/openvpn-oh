@@ -2,8 +2,14 @@ import hilog from '@ohos.hilog';
 
 const DOMAIN = 0xD002F00;
 
+// Strict ArkTS rejects parameter-property shorthand, so we declare the field
+// and assign it in the constructor body.
 export class Logger {
-  constructor(private readonly tag: string) {}
+  private readonly tag: string;
+
+  constructor(tag: string) {
+    this.tag = tag;
+  }
 
   info(msg: string, ...args: Object[]): void {
     hilog.info(DOMAIN, this.tag, '%{public}s', this.fmt(msg, args));
@@ -20,10 +26,19 @@ export class Logger {
 
   private fmt(msg: string, args: Object[]): string {
     if (args.length === 0) return msg;
-    return msg + ' ' + args.map(a => {
-      try { return typeof a === 'string' ? a : JSON.stringify(a); }
-      catch { return String(a); }
-    }).join(' ');
+    const parts: string[] = [];
+    for (const a of args) {
+      if (typeof a === 'string') {
+        parts.push(a);
+      } else {
+        try {
+          parts.push(JSON.stringify(a));
+        } catch (e) {
+          parts.push(String(a));
+        }
+      }
+    }
+    return msg + ' ' + parts.join(' ');
   }
 }
 

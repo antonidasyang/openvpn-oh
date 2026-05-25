@@ -1,47 +1,40 @@
 import { Phase } from '../model/VpnState';
 
-const LABELS: Record<Phase, Resource> = {
-  DISCONNECTED:  $r('app.string.status_disconnected'),
-  RESOLVE:       $r('app.string.status_resolving'),
-  TCP_CONNECT:   $r('app.string.status_tcp_connect'),
-  UDP_CONNECT:   $r('app.string.status_tcp_connect'),
-  WAIT:          $r('app.string.status_wait'),
-  AUTH:          $r('app.string.status_auth'),
-  GET_CONFIG:    $r('app.string.status_get_config'),
-  ASSIGN_IP:     $r('app.string.status_assign_ip'),
-  ADD_ROUTES:    $r('app.string.status_add_routes'),
-  CONNECTED:     $r('app.string.status_connected'),
-  RECONNECTING:  $r('app.string.status_reconnecting'),
-  PAUSE:         $r('app.string.status_paused'),
-  RESUME:        $r('app.string.status_resolving'),
-  ERROR:         $r('app.string.status_error'),
-};
+interface PhaseLabel { phase: Phase; label: Resource; color: Resource }
 
-const COLORS: Record<Phase, Resource> = {
-  DISCONNECTED:  $r('app.color.on_surface_dim'),
-  RESOLVE:       $r('app.color.brand_primary'),
-  TCP_CONNECT:   $r('app.color.brand_primary'),
-  UDP_CONNECT:   $r('app.color.brand_primary'),
-  WAIT:          $r('app.color.brand_primary'),
-  AUTH:          $r('app.color.status_warn'),
-  GET_CONFIG:    $r('app.color.brand_primary'),
-  ASSIGN_IP:     $r('app.color.brand_primary'),
-  ADD_ROUTES:    $r('app.color.brand_primary'),
-  CONNECTED:     $r('app.color.status_connected'),
-  RECONNECTING:  $r('app.color.status_warn'),
-  PAUSE:         $r('app.color.status_warn'),
-  RESUME:        $r('app.color.brand_primary'),
-  ERROR:         $r('app.color.status_error'),
-};
+const TABLE: PhaseLabel[] = [
+  { phase: 'DISCONNECTED', label: $r('app.string.status_disconnected'), color: $r('app.color.on_surface_dim') },
+  { phase: 'RESOLVE',      label: $r('app.string.status_resolving'),    color: $r('app.color.brand_primary') },
+  { phase: 'TCP_CONNECT',  label: $r('app.string.status_tcp_connect'),  color: $r('app.color.brand_primary') },
+  { phase: 'UDP_CONNECT',  label: $r('app.string.status_tcp_connect'),  color: $r('app.color.brand_primary') },
+  { phase: 'WAIT',         label: $r('app.string.status_wait'),         color: $r('app.color.brand_primary') },
+  { phase: 'AUTH',         label: $r('app.string.status_auth'),         color: $r('app.color.status_warn') },
+  { phase: 'GET_CONFIG',   label: $r('app.string.status_get_config'),   color: $r('app.color.brand_primary') },
+  { phase: 'ASSIGN_IP',    label: $r('app.string.status_assign_ip'),    color: $r('app.color.brand_primary') },
+  { phase: 'ADD_ROUTES',   label: $r('app.string.status_add_routes'),   color: $r('app.color.brand_primary') },
+  { phase: 'CONNECTED',    label: $r('app.string.status_connected'),    color: $r('app.color.status_connected') },
+  { phase: 'RECONNECTING', label: $r('app.string.status_reconnecting'), color: $r('app.color.status_warn') },
+  { phase: 'PAUSE',        label: $r('app.string.status_paused'),       color: $r('app.color.status_warn') },
+  { phase: 'RESUME',       label: $r('app.string.status_resolving'),    color: $r('app.color.brand_primary') },
+  { phase: 'ERROR',        label: $r('app.string.status_error'),        color: $r('app.color.status_error') },
+];
+
+function lookup(phase: Phase): PhaseLabel {
+  for (const entry of TABLE) {
+    if (entry.phase === phase) return entry;
+  }
+  return TABLE[0];
+}
 
 @Component
 export struct StatusPill {
   @Prop phase: Phase = 'DISCONNECTED';
 
   build() {
+    const entry: PhaseLabel = lookup(this.phase);
     Row({ space: 8 }) {
-      Circle({ width: 10, height: 10 }).fill(COLORS[this.phase])
-      Text(LABELS[this.phase])
+      Circle({ width: 10, height: 10 }).fill(entry.color)
+      Text(entry.label)
         .fontSize(14)
         .fontColor($r('app.color.on_surface'))
     }

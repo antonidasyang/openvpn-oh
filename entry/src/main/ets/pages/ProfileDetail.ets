@@ -1,27 +1,29 @@
 import { router } from '@kit.ArkUI';
 
 import { ProfileStore } from '../model/ProfileStore';
-import { CredentialStore } from '../model/CredentialStore';
+import { CredentialStore, LoadedCred } from '../model/CredentialStore';
 import { VpnController } from '../service/VpnController';
-import { VpnState } from '../model/VpnState';
+import { VpnState, VpnStateData } from '../model/VpnState';
 import { Profile } from '../model/Profile';
 
 import { StatusPill } from '../components/StatusPill';
 import { StatsCard } from '../components/StatsCard';
 
+interface ProfileRouteParams { profileId: string }
+
 @Entry
-@Component
+@ComponentV2
 struct ProfileDetail {
-  @State private profile: Profile | null = null;
-  @State private username: string = '';
-  @State private password: string = '';
-  @State private cache: boolean = false;
-  @State private credsExpanded: boolean = false;
-  @Local private state = VpnState;
+  @Local private profile: Profile | null = null;
+  @Local private username: string = '';
+  @Local private password: string = '';
+  @Local private cache: boolean = false;
+  @Local private credsExpanded: boolean = false;
+  @Local private state: VpnStateData = VpnState;
 
   async aboutToAppear(): Promise<void> {
-    const params = router.getParams() as Record<string, string> | undefined;
-    const id = params?.['profileId'];
+    const params = router.getParams() as ProfileRouteParams | undefined;
+    const id = params?.profileId;
     if (!id) {
       router.back();
       return;
@@ -31,7 +33,7 @@ struct ProfileDetail {
       router.back();
       return;
     }
-    const cred = await CredentialStore.load(this.profile.id);
+    const cred: LoadedCred | null = await CredentialStore.load(this.profile.id);
     if (cred) {
       this.username = cred.username;
       this.password = cred.password;
@@ -64,14 +66,11 @@ struct ProfileDetail {
   @Builder
   private TopBar() {
     Row() {
-      Button({ type: ButtonType.Circle }) {
-        Image($r('sys.media.ohos_ic_public_back'))
-          .width(20).height(20)
-          .fillColor($r('app.color.on_surface'))
-      }
-      .width(40).height(40)
-      .backgroundColor(Color.Transparent)
-      .onClick(() => router.back())
+      Button('<')
+        .width(40).height(40)
+        .backgroundColor(Color.Transparent)
+        .fontColor($r('app.color.on_surface'))
+        .onClick((): void => { router.back(); })
       Text(this.profile?.displayName ?? '')
         .fontSize(18).fontWeight(FontWeight.Bold)
         .margin({ left: 8 })
@@ -118,12 +117,12 @@ struct ProfileDetail {
         Button($r('app.string.action_disconnect'))
           .width('100%')
           .backgroundColor($r('app.color.status_error'))
-          .onClick(() => VpnController.stop())
+          .onClick((): void => { VpnController.stop(); })
       } else {
         Button($r('app.string.action_connect'))
           .width('100%')
           .backgroundColor($r('app.color.brand_primary'))
-          .onClick(() => this.connect())
+          .onClick((): void => { this.connect(); })
       }
       if (this.state.lastError) {
         Text(this.state.lastError)
@@ -145,21 +144,21 @@ struct ProfileDetail {
           .fontSize(15).fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.on_surface')).layoutWeight(1)
         Toggle({ type: ToggleType.Switch, isOn: this.credsExpanded })
-          .onChange((on) => { this.credsExpanded = on; })
+          .onChange((on: boolean): void => { this.credsExpanded = on; })
       }
       if (this.credsExpanded) {
         TextInput({ placeholder: 'username', text: this.username })
-          .onChange(v => { this.username = v; })
+          .onChange((v: string): void => { this.username = v; })
           .backgroundColor($r('app.color.surface_dim'))
           .borderRadius(10)
         TextInput({ placeholder: 'password', text: this.password })
           .type(InputType.Password)
-          .onChange(v => { this.password = v; })
+          .onChange((v: string): void => { this.password = v; })
           .backgroundColor($r('app.color.surface_dim'))
           .borderRadius(10)
         Row() {
           Toggle({ type: ToggleType.Checkbox, isOn: this.cache })
-            .onChange((on) => { this.cache = on; })
+            .onChange((on: boolean): void => { this.cache = on; })
           Text($r('app.string.label_save_credentials'))
             .fontSize(13)
             .fontColor($r('app.color.on_surface_dim'))
@@ -180,15 +179,14 @@ struct ProfileDetail {
       Text($r('app.string.title_logs'))
         .fontSize(15).fontColor($r('app.color.on_surface'))
         .layoutWeight(1)
-      Image($r('sys.media.ohos_ic_public_arrow_right'))
-        .width(20).height(20)
-        .fillColor($r('app.color.on_surface_dim'))
+      Text('>')
+        .fontSize(18).fontColor($r('app.color.on_surface_dim'))
     }
     .padding(16)
     .backgroundColor($r('app.color.surface'))
     .borderRadius(16)
     .width('100%')
-    .onClick(() => router.pushUrl({ url: 'pages/LogView' }))
+    .onClick((): void => { router.pushUrl({ url: 'pages/LogView' }); })
   }
 
   private async connect(): Promise<void> {

@@ -1,6 +1,5 @@
 {
   "string": [
-    { "name": "app_name", "value": "OpenVPN" },
     { "name": "module_desc", "value": "OpenVPN 客户端模块" },
     { "name": "entry_ability_desc", "value": "OpenVPN 客户端" },
     { "name": "vpn_service_label", "value": "OpenVPN 隧道" },

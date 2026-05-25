@@ -9,9 +9,10 @@ export struct ProfileListItem {
   build() {
     Row({ space: 12 }) {
       Column() {
-        Image($r('sys.media.ohos_ic_public_vpn'))
-          .width(28).height(28)
-          .fillColor($r('app.color.brand_primary'))
+        Text('VPN')
+          .fontSize(14)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.brand_primary'))
       }
       .width(48).height(48)
       .justifyContent(FlexAlign.Center)
@@ -31,18 +32,18 @@ export struct ProfileListItem {
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
 
-      Image($r('sys.media.ohos_ic_public_arrow_right'))
-        .width(20).height(20)
-        .fillColor($r('app.color.on_surface_dim'))
+      Text('>')
+        .fontSize(20)
+        .fontColor($r('app.color.on_surface_dim'))
     }
     .padding(16)
     .backgroundColor($r('app.color.surface'))
     .borderRadius(16)
     .width('100%')
-    .onClick(() => { if (this.onTap) this.onTap(); })
+    .onClick((): void => { if (this.onTap) this.onTap(); })
     .gesture(
       LongPressGesture({ duration: 500 })
-        .onAction(() => { if (this.onDelete) this.onDelete(); })
+        .onAction((): void => { if (this.onDelete) this.onDelete(); })
     )
   }
 }

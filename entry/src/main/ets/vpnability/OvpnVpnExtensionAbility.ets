@@ -1,8 +1,11 @@
+import VpnExtensionAbility from '@ohos.app.ability.VpnExtensionAbility';
 import { vpnExtension } from '@kit.NetworkKit';
 import commonEventManager from '@ohos.commonEventManager';
 import { Want } from '@kit.AbilityKit';
+import { BusinessError } from '@ohos.base';
 
-import { OvpnEngine, OvpnTunConfig, OvpnEvent } from '../service/OvpnEngine';
+import { OvpnEngine, OvpnTunConfig, OvpnEvent, OvpnProtectRequest,
+         OvpnTunAddress, OvpnTunRoute, OvpnTunDns } from '../service/OvpnEngine';
 import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore } from '../model/CredentialStore';
 import {
@@ -18,7 +21,7 @@ const log = logger('OvpnVpnAbility');
 // commands from the UI arrive as CommonEvent broadcasts; state goes back out
 // the same way.
 
-export default class OvpnVpnExtensionAbility extends vpnExtension.VpnExtensionAbility {
+export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
   private engine?: OvpnEngine;
   private connection?: vpnExtension.VpnConnection;
   private subscriber?: commonEventManager.CommonEventSubscriber;
@@ -33,8 +36,9 @@ export default class OvpnVpnExtensionAbility extends vpnExtension.VpnExtensionAb
     this.connection = vpnExtension.createVpnConnection(this.context);
     await this.subscribeCommands();
 
-    const action = (want.parameters?.['action'] as string) ?? '';
-    const profileId = (want.parameters?.['profileId'] as string) ?? '';
+    const params = want.parameters ?? ({} as Record<string, Object>);
+    const action: string = (params['action'] as string) ?? '';
+    const profileId: string = (params['profileId'] as string) ?? '';
     if (action === 'connect' && profileId) {
       await this.startTunnel(profileId);
     }
@@ -65,34 +69,35 @@ export default class OvpnVpnExtensionAbility extends vpnExtension.VpnExtensionAb
       events: [EV_COMMAND_STOP, EV_COMMAND_PAUSE, EV_COMMAND_RESUME, EV_COMMAND_CREDS],
     };
     this.subscriber = await commonEventManager.createSubscriber(info);
-    commonEventManager.subscribe(this.subscriber, (err, data) => {
-      if (err) { log.error('subscribe failed', err as Object); return; }
-      this.handleCommand(data).catch(e => log.error('command failed', e as Object));
-    });
+    commonEventManager.subscribe(this.subscriber,
+      (err: BusinessError, data: commonEventManager.CommonEventData): void => {
+        if (err) { log.error('subscribe failed', err); return; }
+        this.handleCommand(data).catch((e: Object): void => log.error('command failed', e));
+      });
   }
 
   private async handleCommand(data: commonEventManager.CommonEventData): Promise<void> {
-    switch (data.event) {
-      case EV_COMMAND_STOP:
-        this.engine?.stop();
-        return;
-      case EV_COMMAND_PAUSE:
-        this.engine?.pause(data.data ?? 'user');
-        return;
-      case EV_COMMAND_RESUME:
-        this.engine?.resume();
-        return;
-      case EV_COMMAND_CREDS: {
-        try {
-          const p = JSON.parse(data.data ?? '{}') as CredsCommandPayload;
-          this.engine?.provideCreds(p.username, p.password, p.cachePassword);
-          if (this.currentProfileId) {
-            await CredentialStore.save(this.currentProfileId, p.username, p.password, p.cachePassword);
-          }
-        } catch (e) {
-          log.error('creds payload bad', e as Object);
+    if (data.event === EV_COMMAND_STOP) {
+      this.engine?.stop();
+      return;
+    }
+    if (data.event === EV_COMMAND_PAUSE) {
+      this.engine?.pause(data.data ?? 'user');
+      return;
+    }
+    if (data.event === EV_COMMAND_RESUME) {
+      this.engine?.resume();
+      return;
+    }
+    if (data.event === EV_COMMAND_CREDS) {
+      try {
+        const p = JSON.parse(data.data ?? '{}') as CredsCommandPayload;
+        this.engine?.provideCreds(p.username, p.password, p.cachePassword);
+        if (this.currentProfileId) {
+          await CredentialStore.save(this.currentProfileId, p.username, p.password, p.cachePassword);
         }
-        return;
+      } catch (e) {
+        log.error('creds payload bad', e as Object);
       }
     }
   }
@@ -110,9 +115,9 @@ export default class OvpnVpnExtensionAbility extends vpnExtension.VpnExtensionAb
     this.currentProfileName = profile.displayName;
 
     this.engine = new OvpnEngine();
-    this.engine.setEventListener(ev => this.onEngineEvent(ev));
-    this.engine.setLogListener(line => this.onEngineLog(line));
-    this.engine.setProtectHandler(async (req) => {
+    this.engine.setEventListener((ev: OvpnEvent): void => this.onEngineEvent(ev));
+    this.engine.setLogListener((line: string): void => this.onEngineLog(line));
+    this.engine.setProtectHandler(async (req: OvpnProtectRequest): Promise<boolean> => {
       if (!this.connection) return false;
       try {
         await this.connection.protect(req.fd);
@@ -122,7 +127,7 @@ export default class OvpnVpnExtensionAbility extends vpnExtension.VpnExtensionAb
         return false;
       }
     });
-    this.engine.setTunHandler(cfg => this.establishTun(cfg));
+    this.engine.setTunHandler((cfg: OvpnTunConfig): Promise<number> => this.establishTun(cfg));
 
     this.engine.configure({
       content: profile.configText,
@@ -131,8 +136,6 @@ export default class OvpnVpnExtensionAbility extends vpnExtension.VpnExtensionAb
       tunPersist: false,
     });
 
-    // Auto-login profiles can connect immediately; user/pass profiles need
-    // creds before connect(), which the UI will deliver via EV_COMMAND_CREDS.
     if (profile.autologin) {
       this.engine.startConnect();
     } else {
@@ -143,10 +146,6 @@ export default class OvpnVpnExtensionAbility extends vpnExtension.VpnExtensionAb
       } else {
         this.broadcastState('AUTH', 'awaiting credentials', 0,
                             this.currentProfileId, this.currentProfileName);
-        // The UI shows a credentials prompt and submits via EV_COMMAND_CREDS,
-        // and then dispatches connect via another connect call.
-        // For now we still kick off connect; openvpn3 will fire its auth
-        // event and the UI can respond.
         this.engine.startConnect();
       }
     }
@@ -159,25 +158,42 @@ export default class OvpnVpnExtensionAbility extends vpnExtension.VpnExtensionAb
       log.error('establishTun with no connection');
       return -1;
     }
+    const addresses: vpnExtension.LinkAddress[] = cfg.addresses.map(
+      (a: OvpnTunAddress): vpnExtension.LinkAddress => {
+        const linkAddr: vpnExtension.LinkAddress = {
+          address: { address: a.address, family: a.ipv6 ? 2 : 1 },
+          prefixLength: a.prefix,
+        };
+        return linkAddr;
+      }
+    );
+    const routes: vpnExtension.RouteInfo[] = cfg.routes
+      .filter((r: OvpnTunRoute): boolean => !r.exclude)
+      .map((r: OvpnTunRoute): vpnExtension.RouteInfo => {
+        const route: vpnExtension.RouteInfo = {
+          interface: 'tun',
+          destination: {
+            address: { address: r.address, family: r.ipv6 ? 2 : 1 },
+            prefixLength: r.prefix,
+          },
+          gateway: { address: r.ipv6 ? '::' : '0.0.0.0', family: r.ipv6 ? 2 : 1 },
+          hasGateway: false,
+          isDefaultRoute: r.prefix === 0,
+        };
+        return route;
+      });
+    const dnsAddresses: string[] = cfg.dns.map((d: OvpnTunDns): string => d.address);
+    const hasV4 = cfg.rerouteIpv4 || cfg.addresses.some((a: OvpnTunAddress): boolean => !a.ipv6);
+    const hasV6 = cfg.rerouteIpv6 || cfg.addresses.some((a: OvpnTunAddress): boolean => a.ipv6);
+
     const vpnConfig: vpnExtension.VpnConfig = {
-      addresses: cfg.addresses.map(a => ({
-        address: { address: a.address, family: a.ipv6 ? 2 : 1 },
-        prefixLength: a.prefix,
-      })),
-      routes: cfg.routes.filter(r => !r.exclude).map(r => ({
-        interface: 'tun',
-        destination: {
-          address: { address: r.address, family: r.ipv6 ? 2 : 1 },
-          prefixLength: r.prefix,
-        },
-        hasGateway: false,
-        isDefaultRoute: r.prefix === 0,
-      })),
-      dnsAddresses: cfg.dns.map(d => d.address),
+      addresses,
+      routes,
+      dnsAddresses,
       searchDomains: cfg.searchDomains,
       mtu: cfg.mtu,
-      isIPv4Accepted: cfg.rerouteIpv4 || cfg.addresses.some(a => !a.ipv6),
-      isIPv6Accepted: cfg.rerouteIpv6 || cfg.addresses.some(a => a.ipv6),
+      isIPv4Accepted: hasV4,
+      isIPv6Accepted: hasV6,
       isInternal: false,
       isBlocking: false,
       trustedApplications: [],
@@ -201,9 +217,7 @@ export default class OvpnVpnExtensionAbility extends vpnExtension.VpnExtensionAb
                         this.currentProfileId, this.currentProfileName);
     if (ev.name === 'DISCONNECTED' || ev.fatal) {
       this.stopStatsTimer();
-      // Let the system tear us down after a brief grace period so the UI
-      // sees the final state event.
-      setTimeout(() => this.context.terminateSelf(), 500);
+      setTimeout((): void => this.context.terminateSelf(), 500);
     }
   }
 
@@ -218,14 +232,15 @@ export default class OvpnVpnExtensionAbility extends vpnExtension.VpnExtensionAb
   }
 
   private broadcast(event: string, data: string): void {
-    commonEventManager.publish(event, { data }, () => { /* ignore */ });
+    const opts: commonEventManager.CommonEventPublishData = { data };
+    commonEventManager.publish(event, opts, (_err: BusinessError): void => { /* ignore */ });
   }
 
   // ---------- Stats polling ----------
 
   private startStatsTimer(): void {
     this.stopStatsTimer();
-    this.statsTimer = setInterval(() => {
+    this.statsTimer = setInterval((): void => {
       if (!this.engine) return;
       try {
         const s = this.engine.getStats();
@@ -249,3 +264,4 @@ export default class OvpnVpnExtensionAbility extends vpnExtension.VpnExtensionAb
     }
   }
 }
+

@@ -4,10 +4,14 @@ import { logger } from '../util/Logger';
 const log = logger('OvpnEngine');
 
 export type OvpnTunConfig = ovpn.TunConfig;
+export type OvpnTunAddress = ovpn.TunAddress;
+export type OvpnTunRoute = ovpn.TunRoute;
+export type OvpnTunDns = ovpn.TunDns;
 export type OvpnEvent = ovpn.OvpnEvent;
 export type OvpnEvalResult = ovpn.EvalResult;
 export type OvpnConnectConfig = ovpn.ConnectConfig;
 export type OvpnStats = ovpn.Stats;
+export type OvpnProtectRequest = ovpn.ProtectRequest;
 
 // Higher-level wrapper over libovpnclient. The native side exposes a flat,
 // handle-based C API; this class gives ArkTS code a typed object with
@@ -15,14 +19,14 @@ export type OvpnStats = ovpn.Stats;
 export class OvpnEngine {
   private handle: bigint = 0n;
   private tunHandler?: (cfg: OvpnTunConfig) => Promise<number>;
-  private protectHandler?: (req: ovpn.ProtectRequest) => Promise<boolean>;
+  private protectHandler?: (req: OvpnProtectRequest) => Promise<boolean>;
 
   constructor() {
     this.handle = ovpn.create();
     // The native side calls our handlers from the JS thread and expects us to
     // eventually call completeEstablish/completeProtect. We install thin
     // wrappers here that handle the awaiting and routing automatically.
-    ovpn.setTunHandler(this.handle, (cfg: OvpnTunConfig) => {
+    ovpn.setTunHandler(this.handle, (cfg: OvpnTunConfig): void => {
       const h = this.handle;
       if (!this.tunHandler) {
         log.error('tun_builder_establish called with no TS-side handler');
@@ -30,23 +34,23 @@ export class OvpnEngine {
         return;
       }
       this.tunHandler(cfg).then(
-        fd => ovpn.completeEstablish(h, fd | 0),
-        err => {
-          log.error('tun handler rejected', err as Object);
+        (fd: number): void => { ovpn.completeEstablish(h, fd | 0); },
+        (err: Object): void => {
+          log.error('tun handler rejected', err);
           ovpn.completeEstablish(h, -1);
         }
       );
     });
-    ovpn.setProtectHandler(this.handle, (req: ovpn.ProtectRequest) => {
+    ovpn.setProtectHandler(this.handle, (req: OvpnProtectRequest): void => {
       const h = this.handle;
       if (!this.protectHandler) {
         ovpn.completeProtect(h, true);
         return;
       }
       this.protectHandler(req).then(
-        ok => ovpn.completeProtect(h, ok),
-        err => {
-          log.error('protect handler rejected', err as Object);
+        (ok: boolean): void => { ovpn.completeProtect(h, ok); },
+        (err: Object): void => {
+          log.error('protect handler rejected', err);
           ovpn.completeProtect(h, false);
         }
       );
@@ -57,7 +61,7 @@ export class OvpnEngine {
     this.tunHandler = fn;
   }
 
-  setProtectHandler(fn: (req: ovpn.ProtectRequest) => Promise<boolean>): void {
+  setProtectHandler(fn: (req: OvpnProtectRequest) => Promise<boolean>): void {
     this.protectHandler = fn;
   }
 

@@ -46,14 +46,11 @@ struct ImportConfig {
   @Builder
   private TopBar() {
     Row() {
-      Button({ type: ButtonType.Circle }) {
-        Image($r('sys.media.ohos_ic_public_back'))
-          .width(20).height(20)
-          .fillColor($r('app.color.on_surface'))
-      }
-      .width(40).height(40)
-      .backgroundColor(Color.Transparent)
-      .onClick(() => router.back())
+      Button('<')
+        .width(40).height(40)
+        .backgroundColor(Color.Transparent)
+        .fontColor($r('app.color.on_surface'))
+        .onClick((): void => { router.back(); })
       Text($r('app.string.title_import'))
         .fontSize(18).fontWeight(FontWeight.Bold)
         .margin({ left: 8 })
@@ -147,7 +144,7 @@ struct ImportConfig {
         .layoutWeight(1)
         .backgroundColor($r('app.color.surface'))
         .fontColor($r('app.color.on_surface'))
-        .onClick(() => router.back())
+        .onClick((): void => { router.back(); })
       Button($r('app.string.action_save'))
         .layoutWeight(1)
         .enabled(!!this.configText && !this.evalError && !this.saving)

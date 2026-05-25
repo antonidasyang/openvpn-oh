@@ -108,7 +108,7 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
     const profile = ProfileStore.get(profileId);
     if (!profile) {
       this.broadcastState('CONFIG_ERROR', 'profile not found', 1, profileId, '');
-      this.context.terminateSelf();
+      this.terminate();
       return;
     }
     this.currentProfileId = profile.id;
@@ -217,8 +217,22 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
                         this.currentProfileId, this.currentProfileName);
     if (ev.name === 'DISCONNECTED' || ev.fatal) {
       this.stopStatsTimer();
-      setTimeout((): void => this.context.terminateSelf(), 500);
+      setTimeout((): void => this.terminate(), 500);
     }
+  }
+
+  // VpnExtensionContext has no terminateSelf(), unlike UIAbilityContext.
+  // The supported way to stop a VPN extension is to ask the framework to
+  // stop it via vpnExtension.stopVpnExtensionAbility with a Want pointing
+  // back at this ability.
+  private terminate(): void {
+    const want: Want = {
+      bundleName: 'com.ovpn.harmony',
+      abilityName: 'OvpnVpnExtensionAbility',
+    };
+    vpnExtension.stopVpnExtensionAbility(want).catch((e: Object): void => {
+      log.warn('stopVpnExtensionAbility(self) failed', e);
+    });
   }
 
   private onEngineLog(line: string): void {

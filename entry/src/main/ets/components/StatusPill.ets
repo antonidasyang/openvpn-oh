@@ -30,11 +30,16 @@ function lookup(phase: Phase): PhaseLabel {
 export struct StatusPill {
   @Prop phase: Phase = 'DISCONNECTED';
 
+  // ArkUI's build() body is restricted to the component tree — no local
+  // variable declarations are allowed. Pull the lookup into instance
+  // accessors so we can keep using a typed Map-style table.
+  private label(): Resource { return lookup(this.phase).label; }
+  private color(): Resource { return lookup(this.phase).color; }
+
   build() {
-    const entry: PhaseLabel = lookup(this.phase);
     Row({ space: 8 }) {
-      Circle({ width: 10, height: 10 }).fill(entry.color)
-      Text(entry.label)
+      Circle({ width: 10, height: 10 }).fill(this.color())
+      Text(this.label())
         .fontSize(14)
         .fontColor($r('app.color.on_surface'))
     }

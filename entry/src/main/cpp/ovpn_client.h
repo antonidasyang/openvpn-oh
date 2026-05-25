@@ -89,6 +89,9 @@ public:
     void external_pki_cert_request(openvpn::ClientAPI::ExternalPKICertRequest& req) override;
     void external_pki_sign_request(openvpn::ClientAPI::ExternalPKISignRequest& req) override;
     bool pause_on_connection_timeout() override { return false; }
+    // openvpn3 release/3.10 added an App Control Channel custom-message
+    // surface. We don't use it yet, so accept and ignore.
+    void acc_event(const openvpn::ClientAPI::AppCustomControlMessageEvent&) override {}
 
     bool socket_protect(int socket, std::string remote, bool ipv6) override;
 

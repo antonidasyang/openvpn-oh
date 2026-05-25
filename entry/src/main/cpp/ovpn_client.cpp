@@ -210,11 +210,13 @@ openvpn::ClientAPI::EvalConfig OvpnClient::evalConfigSync(const std::string& con
 
 void OvpnClient::provideCreds(const std::string& username,
                               const std::string& password,
-                              bool cachePassword) {
+                              bool /*cachePassword*/) {
+    // openvpn3 release/3.10 dropped ProvideCreds.cachePassword. Caching is
+    // now a Config-level concern (allowPasswordSave) or handled entirely
+    // by the embedding app, which is what we do via CredentialStore.
     openvpn::ClientAPI::ProvideCreds creds;
     creds.username = username;
     creds.password = password;
-    creds.cachePassword = cachePassword;
     auto st = provide_creds(creds);
     if (st.error) {
         OVPN_LOGE("provide_creds error: %s", st.message.c_str());

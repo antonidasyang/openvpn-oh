@@ -68,7 +68,9 @@ target_compile_definitions(ovpncli_obj PRIVATE
     ASIO_STANDALONE
     ASIO_NO_DEPRECATED
     HAVE_LZ4
-    OPENVPN_PLATFORM_LINUX
+    # openvpn3's openvpn/common/platform.hpp auto-defines OPENVPN_PLATFORM_LINUX
+    # when __linux__ is set (true for the OHOS NDK target). We add only the
+    # OHOS-specific flag here; doubling up triggers -Wmacro-redefined.
     OPENVPN_PLATFORM_OHOS
     OPENVPN_FORCE_TUN_NULL=0
     OPENVPN_LOG_LOGBASE_H
@@ -101,7 +103,7 @@ target_compile_definitions(ovpnclient PRIVATE
     USE_ASIO
     ASIO_STANDALONE
     HAVE_LZ4
-    OPENVPN_PLATFORM_LINUX
+    # See note above re: OPENVPN_PLATFORM_LINUX.
     OPENVPN_PLATFORM_OHOS
 )
 

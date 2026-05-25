@@ -173,7 +173,8 @@ static napi_value SetConfig(napi_env env, napi_callback_info info) {
     if ((v = pick("serverOverride")))  cfg.serverOverride = readString(env, v);
     if ((v = pick("portOverride")))    cfg.portOverride = readString(env, v);
     if ((v = pick("protoOverride")))   cfg.protoOverride = readString(env, v);
-    if ((v = pick("ipv6")))            cfg.ipv6 = readString(env, v);
+    // Note: openvpn3 release/3.10 dropped the Config.ipv6 string field.
+    // IPv6 behaviour is now controlled at the OS / tun-builder level.
     if ((v = pick("compressionMode"))) cfg.compressionMode = readString(env, v);
     if ((v = pick("tlsCertProfileOverride")))
                                        cfg.tlsCertProfileOverride = readString(env, v);

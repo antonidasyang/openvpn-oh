@@ -13,7 +13,11 @@
 // openvpn3 public client API. Subclasses ClientAPI::OpenVPNClient, which in
 // turn inherits TunBuilderBase — so tun_builder_* methods live on the same
 // object as event/log/socket_protect callbacks.
-#include <openvpn/client/ovpncli.hpp>
+//
+// Note: ovpncli.hpp lives directly under third_party/openvpn3/client/, NOT
+// under openvpn3/openvpn/client/ like everything else. The latter path
+// doesn't exist on disk.
+#include <client/ovpncli.hpp>
 
 namespace ovpn {
 

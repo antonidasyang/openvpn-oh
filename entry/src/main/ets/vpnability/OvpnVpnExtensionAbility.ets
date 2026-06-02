@@ -6,6 +6,7 @@ import { BusinessError } from '@ohos.base';
 
 import { OvpnEngine, OvpnTunConfig, OvpnEvent, OvpnProtectRequest,
          OvpnTunAddress, OvpnTunRoute, OvpnTunDns } from '../service/OvpnEngine';
+import { Profile } from '../model/Profile';
 import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore } from '../model/CredentialStore';
 import {
@@ -28,9 +29,11 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
   private statsTimer: number = -1;
   private currentProfileId: string = '';
   private currentProfileName: string = '';
+  private bundleName: string = '';
 
   async onCreate(want: Want): Promise<void> {
     log.info('onCreate', JSON.stringify(want.parameters ?? {}));
+    this.bundleName = want.bundleName ?? '';
     await ProfileStore.init(this.context);
     await CredentialStore.init(this.context);
     this.connection = vpnExtension.createVpnConnection(this.context);
@@ -40,7 +43,7 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
     const action: string = (params['action'] as string) ?? '';
     const profileId: string = (params['profileId'] as string) ?? '';
     if (action === 'connect' && profileId) {
-      await this.startTunnel(profileId);
+      await this.startTunnel(profileId, params);
     }
   }
 
@@ -104,8 +107,25 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
 
   // ---------- Tunnel lifecycle ----------
 
-  private async startTunnel(profileId: string): Promise<void> {
-    const profile = ProfileStore.get(profileId);
+  private async startTunnel(profileId: string, params: Record<string, Object>): Promise<void> {
+    // Prefer the profile payload carried in the Want — preferences is not
+    // cross-process safe, so ProfileStore.get may not see what the UI saved.
+    // Fall back to ProfileStore only if the Want did not carry the config.
+    const configText: string = (params['configText'] as string) ?? '';
+    let profile: Profile | undefined;
+    if (configText) {
+      profile = {
+        id: profileId,
+        displayName: (params['displayName'] as string) ?? profileId,
+        configText,
+        remoteHost: '', remotePort: '', remoteProto: '',
+        autologin: (params['autologin'] as boolean) ?? false,
+        staticChallenge: '', staticChallengeEcho: false,
+        externalPki: false, createdAt: 0, lastConnectedAt: 0,
+      };
+    } else {
+      profile = ProfileStore.get(profileId);
+    }
     if (!profile) {
       this.broadcastState('CONFIG_ERROR', 'profile not found', 1, profileId, '');
       this.terminate();
@@ -227,7 +247,7 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
   // back at this ability.
   private terminate(): void {
     const want: Want = {
-      bundleName: 'com.ovpn.harmony',
+      bundleName: this.bundleName,
       abilityName: 'OvpnVpnExtensionAbility',
     };
     vpnExtension.stopVpnExtensionAbility(want).catch((e: Object): void => {

@@ -75,9 +75,15 @@ class VpnControllerImpl {
     VpnState.setPhase('RESOLVE', 'starting tunnel');
     VpnState.lastError = '';
 
+    // Pass the full profile payload through the Want. The extension runs in a
+    // separate process and @ohos.data.preferences is not cross-process safe, so
+    // we cannot rely on the extension re-reading the profile from ProfileStore.
     const params: Record<string, Object> = {
       'action': 'connect',
       'profileId': profile.id,
+      'displayName': profile.displayName,
+      'configText': profile.configText,
+      'autologin': profile.autologin,
     };
     const want: Want = {
       bundleName: this.context.abilityInfo.bundleName,

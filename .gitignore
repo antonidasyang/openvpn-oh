@@ -4,6 +4,7 @@
 .cxx/
 build/
 oh_modules/
+tmp/
 local.properties
 *.har
 *.hap

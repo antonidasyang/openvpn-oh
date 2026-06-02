@@ -199,7 +199,9 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
     );
     const mkRoute = (addr: string, prefix: number, ipv6: boolean): vpnExtension.RouteInfo => {
       const route: vpnExtension.RouteInfo = {
-        interface: 'tun',
+        // HarmonyOS names the third-party VPN tun "vpn-tun"; a wrong name makes
+        // the route a no-op so nothing is ever sent into the tunnel.
+        interface: 'vpn-tun',
         destination: {
           address: { address: addr, family: ipv6 ? 2 : 1 },
           prefixLength: prefix,

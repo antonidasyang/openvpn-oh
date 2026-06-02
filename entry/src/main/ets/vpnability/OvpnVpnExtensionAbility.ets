@@ -197,24 +197,42 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
         return linkAddr;
       }
     );
+    const mkRoute = (addr: string, prefix: number, ipv6: boolean): vpnExtension.RouteInfo => {
+      const route: vpnExtension.RouteInfo = {
+        interface: 'tun',
+        destination: {
+          address: { address: addr, family: ipv6 ? 2 : 1 },
+          prefixLength: prefix,
+        },
+        gateway: { address: ipv6 ? '::' : '0.0.0.0', family: ipv6 ? 2 : 1 },
+        hasGateway: false,
+        isDefaultRoute: prefix === 0,
+      };
+      return route;
+    };
     const routes: vpnExtension.RouteInfo[] = cfg.routes
       .filter((r: OvpnTunRoute): boolean => !r.exclude)
-      .map((r: OvpnTunRoute): vpnExtension.RouteInfo => {
-        const route: vpnExtension.RouteInfo = {
-          interface: 'tun',
-          destination: {
-            address: { address: r.address, family: r.ipv6 ? 2 : 1 },
-            prefixLength: r.prefix,
-          },
-          gateway: { address: r.ipv6 ? '::' : '0.0.0.0', family: r.ipv6 ? 2 : 1 },
-          hasGateway: false,
-          isDefaultRoute: r.prefix === 0,
-        };
-        return route;
-      });
+      .map((r: OvpnTunRoute): vpnExtension.RouteInfo => mkRoute(r.address, r.prefix, r.ipv6));
+    // redirect-gateway only sets reroute flags; openvpn3 does NOT emit an
+    // explicit 0.0.0.0/0 route, so we must add the default route ourselves or
+    // nothing past the tun subnet is reachable.
+    const hasV4Default = routes.some((r: vpnExtension.RouteInfo): boolean =>
+      r.destination.prefixLength === 0 && r.destination.address.family === 1);
+    const hasV6Default = routes.some((r: vpnExtension.RouteInfo): boolean =>
+      r.destination.prefixLength === 0 && r.destination.address.family === 2);
+    if (cfg.rerouteIpv4 && !hasV4Default) routes.push(mkRoute('0.0.0.0', 0, false));
+    if (cfg.rerouteIpv6 && !hasV6Default) routes.push(mkRoute('::', 0, true));
+
     const dnsAddresses: string[] = cfg.dns.map((d: OvpnTunDns): string => d.address);
     const hasV4 = cfg.rerouteIpv4 || cfg.addresses.some((a: OvpnTunAddress): boolean => !a.ipv6);
     const hasV6 = cfg.rerouteIpv6 || cfg.addresses.some((a: OvpnTunAddress): boolean => a.ipv6);
+
+    // Diagnostic: what did the server actually push?
+    const addrSummary = cfg.addresses.map((a: OvpnTunAddress): string => `${a.address}/${a.prefix}`).join(',');
+    const routeSummary = routes.map((r: vpnExtension.RouteInfo): string =>
+      `${r.destination.address.address}/${r.destination.prefixLength}`).join(',');
+    log.info('establishTun',
+      `addrs=[${addrSummary}] routes=[${routeSummary}] reroute4=${cfg.rerouteIpv4} reroute6=${cfg.rerouteIpv6} dns=[${dnsAddresses.join(',')}] mtu=${cfg.mtu}`);
 
     const vpnConfig: vpnExtension.VpnConfig = {
       addresses,

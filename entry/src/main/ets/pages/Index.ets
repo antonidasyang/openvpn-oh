@@ -2,6 +2,7 @@ import { router } from '@kit.ArkUI';
 import mediaquery from '@ohos.mediaquery';
 
 import { ProfileStore } from '../model/ProfileStore';
+import { CredentialStore } from '../model/CredentialStore';
 import { VpnState, VpnStateData } from '../model/VpnState';
 import { VpnController } from '../service/VpnController';
 import { Profile } from '../model/Profile';
@@ -21,6 +22,8 @@ struct Index {
   @Local private isWide: boolean = false;
   @Local private selectedId: string = '';
   @Local private state: VpnStateData = VpnState;
+  @Local private keyPassword: string = '';
+  @Local private pkRequired: boolean = false;
 
   private unsubscribe?: () => void;
   private mqListener?: mediaquery.MediaQueryListener;
@@ -144,7 +147,7 @@ struct Index {
           ListItem() {
             ProfileListItem({
               profile: p,
-              onTap: (): void => this.openProfile(p),
+              onTap: (): void => { this.openProfile(p); },
               onDelete: (): void => this.confirmDelete(p),
             })
           }
@@ -181,10 +184,19 @@ struct Index {
             .backgroundColor($r('app.color.status_error'))
             .onClick((): void => { VpnController.stop(); })
         } else {
+          if (this.showKeyField()) {
+            Text($r('app.string.label_key_password'))
+              .fontSize(14).fontColor($r('app.color.on_surface_dim'))
+            TextInput({ placeholder: 'private key password', text: this.keyPassword })
+              .type(InputType.Password)
+              .onChange((v: string): void => { this.keyPassword = v; })
+              .backgroundColor($r('app.color.surface_dim'))
+              .borderRadius(10)
+          }
           Button($r('app.string.action_connect'))
             .width('100%')
             .backgroundColor($r('app.color.brand_primary'))
-            .onClick((): void => this.connectSelected())
+            .onClick((): void => { this.connectSelected(); })
         }
         if (this.state.lastError) {
           Text(this.state.lastError)
@@ -196,19 +208,46 @@ struct Index {
     }
   }
 
-  private openProfile(p: Profile): void {
+  private async openProfile(p: Profile): Promise<void> {
     if (this.isWide) {
       this.selectedId = p.id;
+      // Reset and recompute the private-key-password state for this profile.
+      VpnState.needKeyPassword = false;
+      this.keyPassword = '';
+      this.pkRequired = p.privateKeyPasswordRequired || this.detectKeyPassword(p.configText);
+      if (this.pkRequired) {
+        this.keyPassword = await CredentialStore.loadKeyPassword(p.id);
+      }
     } else {
       const params: IndexRouteParams = { profileId: p.id };
       router.pushUrl({ url: 'pages/ProfileDetail', params });
     }
   }
 
-  private connectSelected(): void {
+  // Encrypted inline private keys carry these PEM markers — pure string scan,
+  // never run the native engine on the UI thread.
+  private detectKeyPassword(configText: string): boolean {
+    return configText.includes('ENCRYPTED PRIVATE KEY')
+        || (configText.includes('Proc-Type') && configText.includes('ENCRYPTED'));
+  }
+
+  private showKeyField(): boolean {
+    return this.pkRequired || this.state.needKeyPassword;
+  }
+
+  private async connectSelected(): Promise<void> {
     for (const p of this.profiles) {
       if (p.id === this.selectedId) {
-        VpnController.connect(p);
+        // Don't start a doomed connection when the key needs a passphrase.
+        if (this.showKeyField() && !this.keyPassword) {
+          this.pkRequired = true;
+          VpnState.setError('请输入私钥密码 / Enter the private key password');
+          return;
+        }
+        if (this.showKeyField()) {
+          await CredentialStore.saveKeyPassword(p.id, this.keyPassword);
+        }
+        await VpnController.connect(p, this.keyPassword);
         return;
       }
     }

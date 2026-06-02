@@ -151,6 +151,10 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
     this.engine.setTunHandler((cfg: OvpnTunConfig): Promise<number> => this.establishTun(cfg));
 
     const keyPassword: string = (params['privateKeyPassword'] as string) ?? '';
+    // Diagnostic: confirm whether a private-key password actually reached the
+    // extension. Logs only the length, never the secret itself.
+    log.info('startTunnel config',
+      `fromWant=${configText.length > 0} configLen=${profile.configText.length} pkLen=${keyPassword.length}`);
     this.engine.configure({
       content: profile.configText,
       guiVersion: 'openvpn-oh/0.1',

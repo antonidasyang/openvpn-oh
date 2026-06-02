@@ -30,6 +30,9 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
   private currentProfileId: string = '';
   private currentProfileName: string = '';
   private bundleName: string = '';
+  // Appended to error messages so the on-screen red text reveals whether the
+  // private-key password actually reached this (separate) process.
+  private diag: string = '';
 
   async onCreate(want: Want): Promise<void> {
     log.info('onCreate', JSON.stringify(want.parameters ?? {}));
@@ -152,9 +155,9 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
 
     const keyPassword: string = (params['privateKeyPassword'] as string) ?? '';
     // Diagnostic: confirm whether a private-key password actually reached the
-    // extension. Logs only the length, never the secret itself.
-    log.info('startTunnel config',
-      `fromWant=${configText.length > 0} configLen=${profile.configText.length} pkLen=${keyPassword.length}`);
+    // extension. Records only the length, never the secret itself.
+    this.diag = `pkLen=${keyPassword.length} fromWant=${configText.length > 0}`;
+    log.info('startTunnel config', this.diag + ` configLen=${profile.configText.length}`);
     this.engine.configure({
       content: profile.configText,
       guiVersion: 'openvpn-oh/0.1',
@@ -268,7 +271,10 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
 
   private broadcastState(phase: string, info: string, code: number,
                          profileId: string, profileName: string): void {
-    const payload: StateChangedPayload = { phase, info, errorCode: code, profileId, profileName };
+    // Surface the diagnostic in on-screen error text since the extension's
+    // hilog runs in a separate process that's hard to capture.
+    const text = code > 0 && this.diag ? `${info} [${this.diag}]` : info;
+    const payload: StateChangedPayload = { phase, info: text, errorCode: code, profileId, profileName };
     this.broadcast(EV_STATE_CHANGED, JSON.stringify(payload));
   }
 

@@ -92,7 +92,33 @@ class CredentialStoreImpl {
 
   async delete(profileId: string): Promise<void> {
     await this.store!.delete(profileId);
+    await this.store!.delete(profileId + '.pk');
     await this.store!.flush();
+  }
+
+  // ----- Private-key password (separate from auth creds) -----
+
+  async saveKeyPassword(profileId: string, keyPassword: string): Promise<void> {
+    if (!keyPassword) {
+      await this.store!.delete(profileId + '.pk');
+      await this.store!.flush();
+      return;
+    }
+    const sealed = await this.seal(keyPassword);
+    await this.store!.put(profileId + '.pk', JSON.stringify(sealed));
+    await this.store!.flush();
+  }
+
+  async loadKeyPassword(profileId: string): Promise<string> {
+    const raw = await this.store!.get(profileId + '.pk', '') as string;
+    if (!raw) return '';
+    try {
+      const blob = JSON.parse(raw) as SealedBlob;
+      return await this.unseal(blob.ciphertext, blob.iv);
+    } catch (e) {
+      log.error('failed to load key password', e as Object);
+      return '';
+    }
   }
 
   // ----- HUKS plumbing -----

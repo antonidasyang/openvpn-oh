@@ -20,6 +20,7 @@ struct ImportConfig {
   @State private parsedPort: string = '';
   @State private parsedProto: string = '';
   @State private autologin: boolean = true;
+  @State private pkPwdRequired: boolean = false;
   @State private saving: boolean = false;
 
   build() {
@@ -200,6 +201,7 @@ struct ImportConfig {
       this.parsedPort = r.remotePort;
       this.parsedProto = r.remoteProto;
       this.autologin = r.autologin;
+      this.pkPwdRequired = r.privateKeyPasswordRequired;
       if (!this.displayName && r.profileName) this.displayName = r.profileName;
     } finally {
       engine.dispose();
@@ -217,6 +219,7 @@ struct ImportConfig {
         remotePort: this.parsedPort,
         remoteProto: this.parsedProto || 'udp',
         autologin: this.autologin,
+        privateKeyPasswordRequired: this.pkPwdRequired,
         staticChallenge: '',
         staticChallengeEcho: false,
         externalPki: false,

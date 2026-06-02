@@ -10,6 +10,7 @@ export interface Profile {
   remotePort: string;
   remoteProto: string;    // udp / tcp
   autologin: boolean;     // no creds needed
+  privateKeyPasswordRequired: boolean; // inline private key is encrypted
   staticChallenge: string;
   staticChallengeEcho: boolean;
   externalPki: boolean;   // requires HW-backed key (not yet supported)

@@ -6,6 +6,7 @@ import { VpnController } from '../service/VpnController';
 import { VpnState, VpnStateData } from '../model/VpnState';
 import { Profile } from '../model/Profile';
 
+import { OvpnEngine } from '../service/OvpnEngine';
 import { StatusPill } from '../components/StatusPill';
 import { StatsCard } from '../components/StatsCard';
 
@@ -17,6 +18,8 @@ struct ProfileDetail {
   @Local private profile: Profile | null = null;
   @Local private username: string = '';
   @Local private password: string = '';
+  @Local private keyPassword: string = '';
+  @Local private pkRequired: boolean = false;
   @Local private cache: boolean = false;
   @Local private credsExpanded: boolean = false;
   @Local private state: VpnStateData = VpnState;
@@ -39,6 +42,12 @@ struct ProfileDetail {
       this.password = cred.password;
       this.cache = cred.cached;
     }
+    // Persisted flag may be absent on profiles imported before key-password
+    // support existed; re-derive it from the config so legacy profiles work.
+    this.pkRequired = this.profile.privateKeyPasswordRequired || this.detectKeyPassword(this.profile.configText);
+    if (this.pkRequired) {
+      this.keyPassword = await CredentialStore.loadKeyPassword(this.profile.id);
+    }
     this.credsExpanded = !this.profile.autologin && !this.password;
   }
 
@@ -50,6 +59,7 @@ struct ProfileDetail {
           Column({ space: 16 }) {
             this.Summary()
             this.ConnectArea()
+            if (this.pkRequired) this.KeyPassword()
             if (!this.profile!.autologin) this.Credentials()
             this.LogShortcut()
           }
@@ -174,6 +184,25 @@ struct ProfileDetail {
   }
 
   @Builder
+  private KeyPassword() {
+    Column({ space: 12 }) {
+      Text($r('app.string.label_key_password'))
+        .fontSize(15).fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.on_surface'))
+      TextInput({ placeholder: 'private key password', text: this.keyPassword })
+        .type(InputType.Password)
+        .onChange((v: string): void => { this.keyPassword = v; })
+        .backgroundColor($r('app.color.surface_dim'))
+        .borderRadius(10)
+    }
+    .padding(16)
+    .backgroundColor($r('app.color.surface'))
+    .borderRadius(16)
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+  }
+
+  @Builder
   private LogShortcut() {
     Row() {
       Text($r('app.string.title_logs'))
@@ -189,12 +218,27 @@ struct ProfileDetail {
     .onClick((): void => { router.pushUrl({ url: 'pages/LogView' }); })
   }
 
+  private detectKeyPassword(configText: string): boolean {
+    const engine = new OvpnEngine();
+    try {
+      const r = engine.evalConfig(configText);
+      return !r.error && r.privateKeyPasswordRequired;
+    } catch (e) {
+      return false;
+    } finally {
+      engine.dispose();
+    }
+  }
+
   private async connect(): Promise<void> {
     if (!this.profile) return;
     if (!this.profile.autologin && this.username && this.password) {
       await VpnController.submitCreds(this.username, this.password, this.cache);
     }
-    await VpnController.connect(this.profile);
+    if (this.pkRequired) {
+      await CredentialStore.saveKeyPassword(this.profile.id, this.keyPassword);
+    }
+    await VpnController.connect(this.profile, this.keyPassword);
     await ProfileStore.touchLastConnected(this.profile.id);
   }
 }

@@ -40,6 +40,7 @@
     { "name": "label_username", "value": "Username" },
     { "name": "label_password", "value": "Password" },
     { "name": "label_save_credentials", "value": "Remember credentials" },
+    { "name": "label_key_password", "value": "Private key password" },
 
     { "name": "empty_profiles", "value": "No profiles yet. Import a .ovpn file to get started." },
     { "name": "empty_logs", "value": "Log buffer is empty. Connect once to see entries here." }

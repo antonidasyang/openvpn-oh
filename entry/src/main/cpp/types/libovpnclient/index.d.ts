@@ -71,6 +71,7 @@ export interface EvalResult {
 export interface ConnectConfig {
   content: string;
   guiVersion?: string;
+  privateKeyPassword?: string;
   serverOverride?: string;
   portOverride?: string;
   protoOverride?: string;

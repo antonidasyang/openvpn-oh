@@ -67,7 +67,7 @@ class VpnControllerImpl {
     }
   }
 
-  async connect(profile: Profile): Promise<void> {
+  async connect(profile: Profile, keyPassword: string = ''): Promise<void> {
     if (!this.context) throw new Error('VpnController not initialised');
 
     VpnState.activeProfileId = profile.id;
@@ -84,7 +84,11 @@ class VpnControllerImpl {
       'displayName': profile.displayName,
       'configText': profile.configText,
       'autologin': profile.autologin,
+      'privateKeyPasswordRequired': profile.privateKeyPasswordRequired,
     };
+    // Private-key password decrypts the inline client key; openvpn3 needs it on
+    // the Config before parse, so it travels with the connect Want.
+    if (keyPassword) params['privateKeyPassword'] = keyPassword;
     const want: Want = {
       bundleName: this.context.abilityInfo.bundleName,
       abilityName: 'OvpnVpnExtensionAbility',

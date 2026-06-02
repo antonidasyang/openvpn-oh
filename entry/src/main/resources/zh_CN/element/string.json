@@ -40,6 +40,7 @@
     { "name": "label_username", "value": "用户名" },
     { "name": "label_password", "value": "密码" },
     { "name": "label_save_credentials", "value": "记住凭据" },
+    { "name": "label_key_password", "value": "私钥密码" },
 
     { "name": "empty_profiles", "value": "暂无配置。导入 .ovpn 文件开始使用。" },
     { "name": "empty_logs", "value": "日志为空。连接一次后可查看日志。" }

@@ -120,6 +120,7 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
         configText,
         remoteHost: '', remotePort: '', remoteProto: '',
         autologin: (params['autologin'] as boolean) ?? false,
+        privateKeyPasswordRequired: (params['privateKeyPasswordRequired'] as boolean) ?? false,
         staticChallenge: '', staticChallengeEcho: false,
         externalPki: false, createdAt: 0, lastConnectedAt: 0,
       };
@@ -149,11 +150,13 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
     });
     this.engine.setTunHandler((cfg: OvpnTunConfig): Promise<number> => this.establishTun(cfg));
 
+    const keyPassword: string = (params['privateKeyPassword'] as string) ?? '';
     this.engine.configure({
       content: profile.configText,
       guiVersion: 'openvpn-oh/0.1',
       compressionMode: 'yes',
       tunPersist: false,
+      privateKeyPassword: keyPassword,
     });
 
     if (profile.autologin) {

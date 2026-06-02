@@ -170,6 +170,7 @@ static napi_value SetConfig(napi_env env, napi_callback_info info) {
     };
     if ((v = pick("content")))         cfg.content = readString(env, v);
     if ((v = pick("guiVersion")))      cfg.guiVersion = readString(env, v);
+    if ((v = pick("privateKeyPassword"))) cfg.privateKeyPassword = readString(env, v);
     if ((v = pick("serverOverride")))  cfg.serverOverride = readString(env, v);
     if ((v = pick("portOverride")))    cfg.portOverride = readString(env, v);
     if ((v = pick("protoOverride")))   cfg.protoOverride = readString(env, v);

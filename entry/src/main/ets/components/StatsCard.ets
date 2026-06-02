@@ -1,5 +1,5 @@
-function formatBytes(n: bigint): string {
-  let v = Number(n);
+function formatBytes(n: number): string {
+  let v = n;
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let i = 0;
   while (v >= 1024 && i < units.length - 1) {
@@ -21,8 +21,8 @@ function formatDuration(sinceMs: number): string {
 
 @Component
 export struct StatsCard {
-  @Prop bytesIn: bigint = 0n;
-  @Prop bytesOut: bigint = 0n;
+  @Prop bytesIn: number = 0;
+  @Prop bytesOut: number = 0;
   @Prop connectedSince: number = 0;
   // Drives 1Hz redraws so the duration ticks even when nothing else changes.
   @State private tick: number = 0;

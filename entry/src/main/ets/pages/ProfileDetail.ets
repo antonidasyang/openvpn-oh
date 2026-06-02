@@ -110,8 +110,8 @@ struct ProfileDetail {
       StatusPill({ phase: this.state.phase })
       if (this.state.phase === 'CONNECTED' || this.state.phase === 'RECONNECTING') {
         StatsCard({
-          bytesIn:        this.state.stats.bytesIn,
-          bytesOut:       this.state.stats.bytesOut,
+          bytesIn:        Number(this.state.stats.bytesIn),
+          bytesOut:       Number(this.state.stats.bytesOut),
           connectedSince: this.state.connectedSince,
         })
         Button($r('app.string.action_disconnect'))

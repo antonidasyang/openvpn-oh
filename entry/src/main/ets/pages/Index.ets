@@ -171,8 +171,8 @@ struct Index {
           .fontColor($r('app.color.on_surface'))
         StatusPill({ phase: this.state.phase })
         StatsCard({
-          bytesIn:        this.state.stats.bytesIn,
-          bytesOut:       this.state.stats.bytesOut,
+          bytesIn:        Number(this.state.stats.bytesIn),
+          bytesOut:       Number(this.state.stats.bytesOut),
           connectedSince: this.state.connectedSince,
         })
         if (this.state.phase === 'CONNECTED' || this.state.phase === 'RECONNECTING') {

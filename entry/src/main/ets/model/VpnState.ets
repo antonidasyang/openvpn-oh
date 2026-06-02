@@ -39,6 +39,9 @@ export class VpnStateData {
   @Trace activeProfileName: string = '';
   @Trace lastError: string = '';
   @Trace lastEventInfo: string = '';
+  // Set when the engine reports the inline private key is encrypted, so the UI
+  // can reveal the private-key-password field even if static detection missed.
+  @Trace needKeyPassword: boolean = false;
   @Trace stats: Stats = EMPTY_STATS;
   @Trace connectedSince: number = 0;  // epoch ms; 0 when not connected
   @Trace logLines: string[] = [];

@@ -41,6 +41,9 @@ struct ProfileDetail {
       this.password = cred.password;
       this.cache = cred.cached;
     }
+    // Clear any runtime flag from a previous profile so it can't wrongly force
+    // the key-password field (and connect guard) on a profile that needs none.
+    VpnState.needKeyPassword = false;
     // Persisted flag may be absent on profiles imported before key-password
     // support existed; re-derive it from the config so legacy profiles work.
     this.pkRequired = this.profile.privateKeyPasswordRequired || this.detectKeyPassword(this.profile.configText);
@@ -58,7 +61,7 @@ struct ProfileDetail {
           Column({ space: 16 }) {
             this.Summary()
             this.ConnectArea()
-            if (this.pkRequired) this.KeyPassword()
+            if (this.showKeyField()) this.KeyPassword()
             if (!this.profile!.autologin) this.Credentials()
             this.LogShortcut()
           }
@@ -234,6 +237,12 @@ struct ProfileDetail {
     .onClick((): void => { router.pushUrl({ url: 'pages/LogView' }); })
   }
 
+  // Show the private-key-password field when static detection flagged it, or
+  // when the engine reported at runtime that the key is encrypted.
+  private showKeyField(): boolean {
+    return this.pkRequired || this.state.needKeyPassword;
+  }
+
   private detectKeyPassword(configText: string): boolean {
     // Detect an encrypted inline private key by its PEM markers. This is a pure
     // string scan on purpose: never create/run the native engine on the UI
@@ -245,10 +254,17 @@ struct ProfileDetail {
 
   private async connect(): Promise<void> {
     if (!this.profile) return;
+    // Don't start a doomed connection: this profile's key is encrypted but no
+    // passphrase was entered. Reveal the field and tell the user.
+    if (this.showKeyField() && !this.keyPassword) {
+      this.pkRequired = true;
+      VpnState.setError('请输入私钥密码 / Enter the private key password');
+      return;
+    }
     if (!this.profile.autologin && this.username && this.password) {
       await VpnController.submitCreds(this.username, this.password, this.cache);
     }
-    if (this.pkRequired) {
+    if (this.showKeyField()) {
       await CredentialStore.saveKeyPassword(this.profile.id, this.keyPassword);
     }
     await VpnController.connect(this.profile, this.keyPassword);

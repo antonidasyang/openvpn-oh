@@ -149,6 +149,12 @@ class VpnControllerImpl {
         const phase = PHASE_MAP[p.phase] ?? 'ERROR';
         VpnState.setPhase(phase, p.info);
         if (p.errorCode > 0) VpnState.lastError = p.info;
+        // The engine couldn't decrypt the inline key — reveal the password
+        // field on the detail screen so the user can supply the passphrase.
+        if (p.errorCode > 0 && p.info.toLowerCase().includes('private key password')) {
+          VpnState.needKeyPassword = true;
+        }
+        if (phase === 'CONNECTED') VpnState.needKeyPassword = false;
         if (p.profileId) VpnState.activeProfileId = p.profileId;
         if (p.profileName) VpnState.activeProfileName = p.profileName;
       } catch (e) {

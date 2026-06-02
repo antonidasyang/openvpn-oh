@@ -7,6 +7,7 @@ import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore } from '../model/CredentialStore';
 import { VpnState, VpnStateData } from '../model/VpnState';
 import { VpnController } from '../service/VpnController';
+import { VpnNotification } from '../service/VpnNotification';
 import { EVENT_CLOSE_REQUEST } from '../service/CommonEvents';
 import { Profile } from '../model/Profile';
 
@@ -68,11 +69,18 @@ struct Index {
           },
         },
         {
-          // Close the window (leaves the taskbar); the VPN extension + its
-          // ongoing notification keep running in the background.
+          // Close the window (leaves the taskbar) but keep running in the
+          // background. Publish the ongoing "tray" notification ourselves so it
+          // is always present here — even when not connected — then close.
           value: '后台运行',
           action: (): void => {
-            (getContext(this) as common.UIAbilityContext).terminateSelf();
+            const ctx = getContext(this) as common.UIAbilityContext;
+            VpnNotification.init(ctx, ctx.abilityInfo.bundleName);
+            const connected = this.state.phase === 'CONNECTED' || this.state.phase === 'RECONNECTING';
+            const text = connected ? `已连接 ${this.state.activeProfileName}` : '在后台运行';
+            VpnNotification.show('D2SVPN', text, this.state.activeProfileId)
+              .then((): void => { ctx.terminateSelf(); })
+              .catch((): void => { ctx.terminateSelf(); });
           },
         },
         {

@@ -67,8 +67,20 @@ class VpnControllerImpl {
     }
   }
 
+  private delay(ms: number): Promise<void> {
+    return new Promise<void>((resolve: () => void): void => { setTimeout(resolve, ms); });
+  }
+
   async connect(profile: Profile, keyPassword: string = ''): Promise<void> {
     if (!this.context) throw new Error('VpnController not initialised');
+
+    // Only one tunnel at a time: if anything is currently up/connecting, tear
+    // it down first and give the singleton extension a moment to fully stop
+    // before we start it again for the new profile.
+    if (VpnState.phase !== 'DISCONNECTED') {
+      await this.stop();
+      await this.delay(800);
+    }
 
     VpnState.activeProfileId = profile.id;
     VpnState.activeProfileName = profile.displayName;
@@ -110,9 +122,18 @@ class VpnControllerImpl {
   }
 
   async stop(): Promise<void> {
+    // Reflect the disconnect in the UI immediately. The extension is often
+    // killed (stopVpnExtensionAbility) before its own DISCONNECTED event can
+    // propagate back here, which previously left the UI stuck on "connected"
+    // with a dead Disconnect button.
+    VpnState.setPhase('DISCONNECTED', 'disconnected');
     if (!this.context) return;
     const empty: commonEventManager.CommonEventPublishData = {};
-    await this.publish(EV_COMMAND_STOP, empty);
+    try {
+      await this.publish(EV_COMMAND_STOP, empty);
+    } catch (e) {
+      log.warn('publish stop failed', e as Object);
+    }
     const want: Want = {
       bundleName: this.context.abilityInfo.bundleName,
       abilityName: 'OvpnVpnExtensionAbility',

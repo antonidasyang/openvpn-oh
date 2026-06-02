@@ -33,9 +33,13 @@ export struct ProfileListItem {
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
 
-      Text('>')
-        .fontSize(20)
-        .fontColor($r('app.color.on_surface_dim'))
+      Button({ type: ButtonType.Circle }) {
+        Text('🗑')
+          .fontSize(16)
+      }
+      .width(36).height(36)
+      .backgroundColor($r('app.color.surface_dim'))
+      .onClick((): void => { if (this.onDelete) this.onDelete(); })
     }
     .padding(16)
     .backgroundColor(this.selected ? $r('app.color.surface_dim') : $r('app.color.surface'))

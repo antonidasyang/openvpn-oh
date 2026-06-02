@@ -1,5 +1,7 @@
 import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
+import { emitter } from '@kit.BasicServicesKit';
+import { EVENT_CLOSE_REQUEST } from '../service/CommonEvents';
 import { logger } from '../util/Logger';
 import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore } from '../model/CredentialStore';
@@ -30,10 +32,12 @@ export default class EntryAbility extends UIAbility {
     // event is only available on desktop-class devices.
     try {
       stage.on('windowStageClose', (): boolean => {
+        // Cancel the system close and let the UI ask the user whether to
+        // minimize (keep the tunnel running) or exit.
         try {
-          stage.getMainWindowSync().minimize();
+          emitter.emit({ eventId: EVENT_CLOSE_REQUEST });
         } catch (e) {
-          log.warn('minimize on close failed', e as Object);
+          log.warn('emit close-request failed', e as Object);
         }
         return false;
       });

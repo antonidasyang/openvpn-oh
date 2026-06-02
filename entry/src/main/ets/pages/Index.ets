@@ -1,10 +1,13 @@
-import { router } from '@kit.ArkUI';
+import { router, window } from '@kit.ArkUI';
 import mediaquery from '@ohos.mediaquery';
+import { common } from '@kit.AbilityKit';
+import { emitter } from '@kit.BasicServicesKit';
 
 import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore } from '../model/CredentialStore';
 import { VpnState, VpnStateData } from '../model/VpnState';
 import { VpnController } from '../service/VpnController';
+import { EVENT_CLOSE_REQUEST } from '../service/CommonEvents';
 import { Profile } from '../model/Profile';
 
 import { ProfileListItem } from '../components/ProfileListItem';
@@ -38,11 +41,41 @@ struct Index {
       this.isWide = r.matches;
     });
     this.isWide = this.mqListener.matches;
+
+    // The ability cancels the window close and asks us to confirm what to do.
+    emitter.on({ eventId: EVENT_CLOSE_REQUEST }, (): void => { this.onCloseRequest(); });
   }
 
   aboutToDisappear(): void {
     if (this.unsubscribe) this.unsubscribe();
     if (this.mqListener) this.mqListener.off('change');
+    emitter.off(EVENT_CLOSE_REQUEST);
+  }
+
+  // Triggered when the user presses the window close button. Ask whether to
+  // keep running in the background (minimize) or fully quit.
+  private onCloseRequest(): void {
+    AlertDialog.show({
+      title: 'D2SVPN',
+      message: '最小化到后台继续运行，还是退出应用？',
+      primaryButton: {
+        value: '退出',
+        fontColor: $r('app.color.status_error'),
+        action: (): void => {
+          VpnController.stop();
+          const ctx = getContext(this) as common.UIAbilityContext;
+          ctx.terminateSelf();
+        },
+      },
+      secondaryButton: {
+        value: '最小化',
+        action: (): void => {
+          window.getLastWindow(getContext(this))
+            .then((w: window.Window): Promise<void> => w.minimize())
+            .catch((e: Object): void => { console.error('minimize failed', JSON.stringify(e)); });
+        },
+      },
+    });
   }
 
   build() {
@@ -199,14 +232,11 @@ struct Index {
               .fontSize(13).fontColor($r('app.color.status_error'))
           }
         } else {
-          // A different profile is connected — let the user tear it down first.
+          // A different profile is connected — connecting this one will
+          // automatically disconnect it first (only one tunnel at a time).
           if (this.state.phase !== 'DISCONNECTED') {
-            Text(`${this.state.activeProfileName} 已连接 — 断开后可连此配置`)
+            Text(`${this.state.activeProfileName} 已连接 — 连接此配置会自动断开它`)
               .fontSize(13).fontColor($r('app.color.on_surface_dim'))
-            Button($r('app.string.action_disconnect'))
-              .width('100%')
-              .backgroundColor($r('app.color.status_error'))
-              .onClick((): void => { VpnController.stop(); })
           }
           if (this.showKeyField()) {
             Text($r('app.string.label_key_password'))
@@ -221,7 +251,6 @@ struct Index {
           Button($r('app.string.action_connect'))
             .width('100%')
             .backgroundColor($r('app.color.brand_primary'))
-            .enabled(this.state.phase === 'DISCONNECTED')
             .onClick((): void => { this.connectSelected(); })
         }
       }
@@ -293,7 +322,14 @@ struct Index {
       primaryButton: {
         value: $r('app.string.action_delete'),
         fontColor: $r('app.color.status_error'),
-        action: (): void => { ProfileStore.delete(p.id); }
+        action: (): void => {
+          if (this.state.activeProfileId === p.id && this.state.phase !== 'DISCONNECTED') {
+            VpnController.stop();
+          }
+          if (this.selectedId === p.id) this.selectedId = '';
+          CredentialStore.delete(p.id);
+          ProfileStore.delete(p.id);
+        }
       },
       secondaryButton: {
         value: $r('app.string.action_cancel'),

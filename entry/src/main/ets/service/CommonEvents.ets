@@ -9,6 +9,9 @@ export const EV_COMMAND_PAUSE   = 'com.ovpn.harmony.cmd.pause';
 export const EV_COMMAND_RESUME  = 'com.ovpn.harmony.cmd.resume';
 export const EV_COMMAND_CREDS   = 'com.ovpn.harmony.cmd.creds';
 
+// In-process (UI) emitter event id: ability -> page request to confirm close.
+export const EVENT_CLOSE_REQUEST = 1001;
+
 export const EV_STATE_CHANGED   = 'com.ovpn.harmony.evt.state';
 export const EV_LOG_LINE        = 'com.ovpn.harmony.evt.log';
 export const EV_STATS_UPDATE    = 'com.ovpn.harmony.evt.stats';

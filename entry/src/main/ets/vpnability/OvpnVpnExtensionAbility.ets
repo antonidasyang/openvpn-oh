@@ -9,6 +9,7 @@ import { OvpnEngine, OvpnTunConfig, OvpnEvent, OvpnProtectRequest,
 import { Profile } from '../model/Profile';
 import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore } from '../model/CredentialStore';
+import { VpnNotification } from '../service/VpnNotification';
 import {
   EV_COMMAND_STOP, EV_COMMAND_PAUSE, EV_COMMAND_RESUME, EV_COMMAND_CREDS,
   EV_STATE_CHANGED, EV_LOG_LINE, EV_STATS_UPDATE,
@@ -39,6 +40,7 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
     this.bundleName = want.bundleName ?? '';
     await ProfileStore.init(this.context);
     await CredentialStore.init(this.context);
+    VpnNotification.init(this.context, this.bundleName);
     this.connection = vpnExtension.createVpnConnection(this.context);
     await this.subscribeCommands();
 
@@ -52,6 +54,7 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
 
   async onDestroy(): Promise<void> {
     log.info('onDestroy');
+    await VpnNotification.cancel();
     this.stopStatsTimer();
     if (this.engine) {
       try { this.engine.stop(); } catch (e) { log.warn('engine stop threw', e as Object); }
@@ -265,6 +268,12 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
     log.info('event', ev.name, ev.info);
     this.broadcastState(ev.name, ev.info, ev.code,
                         this.currentProfileId, this.currentProfileName);
+    // Keep the ongoing "tray" notification in sync with the tunnel state.
+    if (ev.name === 'CONNECTED') {
+      VpnNotification.show('D2SVPN', `已连接 ${this.currentProfileName}`, this.currentProfileId);
+    } else if (ev.name === 'RECONNECTING') {
+      VpnNotification.show('D2SVPN', `重新连接 ${this.currentProfileName}…`, this.currentProfileId);
+    }
     if (ev.name === 'DISCONNECTED' || ev.fatal) {
       this.stopStatsTimer();
       setTimeout((): void => this.terminate(), 500);

@@ -57,24 +57,34 @@ struct Index {
   private onCloseRequest(): void {
     AlertDialog.show({
       title: 'D2SVPN',
-      message: '最小化到后台继续运行，还是退出应用？',
-      primaryButton: {
-        value: '退出',
-        fontColor: $r('app.color.status_error'),
-        action: (): void => {
-          VpnController.stop();
-          const ctx = getContext(this) as common.UIAbilityContext;
-          ctx.terminateSelf();
+      message: '要怎么处理 D2SVPN？',
+      buttons: [
+        {
+          value: '最小化',
+          action: (): void => {
+            window.getLastWindow(getContext(this))
+              .then((w: window.Window): Promise<void> => w.minimize())
+              .catch((e: Object): void => { console.error('minimize failed', JSON.stringify(e)); });
+          },
         },
-      },
-      secondaryButton: {
-        value: '最小化',
-        action: (): void => {
-          window.getLastWindow(getContext(this))
-            .then((w: window.Window): Promise<void> => w.minimize())
-            .catch((e: Object): void => { console.error('minimize failed', JSON.stringify(e)); });
+        {
+          // Close the window (leaves the taskbar); the VPN extension + its
+          // ongoing notification keep running in the background.
+          value: '后台运行',
+          action: (): void => {
+            (getContext(this) as common.UIAbilityContext).terminateSelf();
+          },
         },
-      },
+        {
+          value: '退出',
+          fontColor: $r('app.color.status_error'),
+          action: (): void => {
+            VpnController.stop();
+            (getContext(this) as common.UIAbilityContext).terminateSelf();
+          },
+        },
+      ],
+      buttonDirection: DialogButtonDirection.VERTICAL,
     });
   }
 

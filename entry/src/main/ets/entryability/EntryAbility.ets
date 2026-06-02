@@ -1,7 +1,9 @@
 import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
 import { emitter } from '@kit.BasicServicesKit';
+import notificationManager from '@ohos.notificationManager';
 import { EVENT_CLOSE_REQUEST } from '../service/CommonEvents';
+import { Profile } from '../model/Profile';
 import { logger } from '../util/Logger';
 import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore } from '../model/CredentialStore';
@@ -15,6 +17,30 @@ export default class EntryAbility extends UIAbility {
     await ProfileStore.init(this.context);
     await CredentialStore.init(this.context);
     await VpnController.init(this.context);
+    try {
+      await notificationManager.requestEnableNotification(this.context);
+    } catch (e) {
+      log.warn('requestEnableNotification failed', e as Object);
+    }
+    await this.handleNotifAction(want);
+  }
+
+  async onNewWant(want: Want, _launchParam: AbilityConstant.LaunchParam): Promise<void> {
+    await this.handleNotifAction(want);
+  }
+
+  // Act on a tap from the ongoing notification (e.g. its 重连 button).
+  private async handleNotifAction(want: Want): Promise<void> {
+    const params = want.parameters ?? ({} as Record<string, Object>);
+    const action: string = (params['notifAction'] as string) ?? '';
+    if (action === 'reconnect') {
+      const pid: string = (params['profileId'] as string) ?? '';
+      const p: Profile | undefined = ProfileStore.get(pid);
+      if (p) {
+        const kp: string = await CredentialStore.loadKeyPassword(p.id);
+        await VpnController.connect(p, kp);
+      }
+    }
   }
 
   async onDestroy(): Promise<void> {

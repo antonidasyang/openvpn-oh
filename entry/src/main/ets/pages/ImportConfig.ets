@@ -213,7 +213,7 @@ struct ImportConfig {
     try {
       const profile: Profile = {
         id: newProfileId(),
-        displayName: this.displayName || this.parsedHost || 'OpenVPN',
+        displayName: this.displayName || this.parsedHost || 'D2SVPN',
         configText: this.configText,
         remoteHost: this.parsedHost,
         remotePort: this.parsedPort,

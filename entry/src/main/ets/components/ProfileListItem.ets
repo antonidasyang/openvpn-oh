@@ -3,6 +3,7 @@ import { Profile } from '../model/Profile';
 @Component
 export struct ProfileListItem {
   @Prop profile: Profile;
+  @Prop selected: boolean = false;
   onTap?: () => void;
   onDelete?: () => void;
 
@@ -37,8 +38,11 @@ export struct ProfileListItem {
         .fontColor($r('app.color.on_surface_dim'))
     }
     .padding(16)
-    .backgroundColor($r('app.color.surface'))
+    .backgroundColor(this.selected ? $r('app.color.surface_dim') : $r('app.color.surface'))
     .borderRadius(16)
+    .border(this.selected
+      ? { width: 2, color: $r('app.color.brand_primary') }
+      : { width: 0, color: $r('app.color.surface') })
     .width('100%')
     .onClick((): void => { if (this.onTap) this.onTap(); })
     .gesture(

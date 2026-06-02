@@ -1,9 +1,9 @@
 {
   "string": [
-    { "name": "module_desc", "value": "OpenVPN client module" },
-    { "name": "entry_ability_desc", "value": "OpenVPN client" },
-    { "name": "vpn_service_label", "value": "OpenVPN tunnel" },
-    { "name": "vpn_service_desc", "value": "Background service that runs the OpenVPN tunnel" },
+    { "name": "module_desc", "value": "D2SVPN client module" },
+    { "name": "entry_ability_desc", "value": "D2SVPN client" },
+    { "name": "vpn_service_label", "value": "D2SVPN tunnel" },
+    { "name": "vpn_service_desc", "value": "Background service that runs the D2SVPN tunnel" },
 
     { "name": "title_profiles", "value": "Profiles" },
     { "name": "title_import", "value": "Import .ovpn config" },

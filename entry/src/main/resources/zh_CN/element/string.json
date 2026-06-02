@@ -1,9 +1,9 @@
 {
   "string": [
-    { "name": "module_desc", "value": "OpenVPN 客户端模块" },
-    { "name": "entry_ability_desc", "value": "OpenVPN 客户端" },
-    { "name": "vpn_service_label", "value": "OpenVPN 隧道" },
-    { "name": "vpn_service_desc", "value": "运行 OpenVPN 隧道的后台服务" },
+    { "name": "module_desc", "value": "D2SVPN 客户端模块" },
+    { "name": "entry_ability_desc", "value": "D2SVPN 客户端" },
+    { "name": "vpn_service_label", "value": "D2SVPN 隧道" },
+    { "name": "vpn_service_desc", "value": "运行 D2SVPN 隧道的后台服务" },
 
     { "name": "title_profiles", "value": "配置文件" },
     { "name": "title_import", "value": "导入 .ovpn 配置" },

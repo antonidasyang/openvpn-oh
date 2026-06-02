@@ -19,7 +19,7 @@ struct ProfileDetail {
   @Local private password: string = '';
   @Local private keyPassword: string = '';
   @Local private pkRequired: boolean = false;
-  @Local private cache: boolean = false;
+  @Local private cache: boolean = true;
   @Local private credsExpanded: boolean = false;
   @Local private state: VpnStateData = VpnState;
 
@@ -183,6 +183,7 @@ struct ProfileDetail {
         TextInput({ placeholder: 'password', text: this.password })
           .type(InputType.Password)
           .onChange((v: string): void => { this.password = v; })
+          .onSubmit((): void => { this.connect(); })
           .backgroundColor($r('app.color.surface_dim'))
           .borderRadius(10)
         Row() {
@@ -211,6 +212,7 @@ struct ProfileDetail {
       TextInput({ placeholder: 'private key password', text: this.keyPassword })
         .type(InputType.Password)
         .onChange((v: string): void => { this.keyPassword = v; })
+        .onSubmit((): void => { this.connect(); })
         .backgroundColor($r('app.color.surface_dim'))
         .borderRadius(10)
     }

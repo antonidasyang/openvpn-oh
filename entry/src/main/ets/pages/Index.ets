@@ -112,7 +112,7 @@ struct Index {
     if (this.state.phase !== 'DISCONNECTED') {
       Row() {
         Column({ space: 4 }) {
-          Text(this.state.activeProfileName || 'OpenVPN')
+          Text(this.state.activeProfileName || 'D2SVPN')
             .fontSize(14)
             .fontColor($r('app.color.on_surface_dim'))
           StatusPill({ phase: this.state.phase })
@@ -147,6 +147,7 @@ struct Index {
           ListItem() {
             ProfileListItem({
               profile: p,
+              selected: this.isWide && p.id === this.selectedId,
               onTap: (): void => { this.openProfile(p); },
               onDelete: (): void => this.confirmDelete(p),
             })
@@ -169,43 +170,68 @@ struct Index {
       .justifyContent(FlexAlign.Center)
     } else {
       Column({ space: 16 }) {
-        Text(this.state.activeProfileName || this.selectedDisplayName())
+        // Always show the SELECTED profile's name, not the globally active one,
+        // so switching profiles in the list actually updates the panel.
+        Text(this.selectedDisplayName())
           .fontSize(20).fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.on_surface'))
-        StatusPill({ phase: this.state.phase })
-        StatsCard({
-          bytesIn:        Number(this.state.stats.bytesIn),
-          bytesOut:       Number(this.state.stats.bytesOut),
-          connectedSince: this.state.connectedSince,
-        })
-        if (this.state.phase === 'CONNECTED' || this.state.phase === 'RECONNECTING') {
-          Button($r('app.string.action_disconnect'))
-            .width('100%')
-            .backgroundColor($r('app.color.status_error'))
-            .onClick((): void => { VpnController.stop(); })
+        // Live status/stats only when the selected profile is the connected one.
+        if (this.isSelectedActive()) {
+          StatusPill({ phase: this.state.phase })
+          StatsCard({
+            bytesIn:        Number(this.state.stats.bytesIn),
+            bytesOut:       Number(this.state.stats.bytesOut),
+            connectedSince: this.state.connectedSince,
+          })
+          if (this.state.phase === 'CONNECTED' || this.state.phase === 'RECONNECTING') {
+            Button($r('app.string.action_disconnect'))
+              .width('100%')
+              .backgroundColor($r('app.color.status_error'))
+              .onClick((): void => { VpnController.stop(); })
+          } else {
+            Button($r('app.string.action_cancel'))
+              .width('100%')
+              .backgroundColor($r('app.color.status_error'))
+              .onClick((): void => { VpnController.stop(); })
+          }
+          if (this.state.lastError) {
+            Text(this.state.lastError)
+              .fontSize(13).fontColor($r('app.color.status_error'))
+          }
         } else {
+          // A different profile is connected — let the user tear it down first.
+          if (this.state.phase !== 'DISCONNECTED') {
+            Text(`${this.state.activeProfileName} 已连接 — 断开后可连此配置`)
+              .fontSize(13).fontColor($r('app.color.on_surface_dim'))
+            Button($r('app.string.action_disconnect'))
+              .width('100%')
+              .backgroundColor($r('app.color.status_error'))
+              .onClick((): void => { VpnController.stop(); })
+          }
           if (this.showKeyField()) {
             Text($r('app.string.label_key_password'))
               .fontSize(14).fontColor($r('app.color.on_surface_dim'))
             TextInput({ placeholder: 'private key password', text: this.keyPassword })
               .type(InputType.Password)
               .onChange((v: string): void => { this.keyPassword = v; })
+              .onSubmit((): void => { this.connectSelected(); })
               .backgroundColor($r('app.color.surface_dim'))
               .borderRadius(10)
           }
           Button($r('app.string.action_connect'))
             .width('100%')
             .backgroundColor($r('app.color.brand_primary'))
+            .enabled(this.state.phase === 'DISCONNECTED')
             .onClick((): void => { this.connectSelected(); })
-        }
-        if (this.state.lastError) {
-          Text(this.state.lastError)
-            .fontSize(13).fontColor($r('app.color.status_error'))
         }
       }
       .alignItems(HorizontalAlign.Start)
       .width('100%')
     }
+  }
+
+  private isSelectedActive(): boolean {
+    return !!this.selectedId && this.state.activeProfileId === this.selectedId;
   }
 
   private async openProfile(p: Profile): Promise<void> {

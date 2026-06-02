@@ -23,5 +23,22 @@ export default class EntryAbility extends UIAbility {
     await stage.loadContent('pages/Index', (err) => {
       if (err) log.error('loadContent failed', err);
     });
+
+    // On 2-in-1/PC, intercept the title-bar close button: instead of exiting,
+    // minimize so the app (and the VPN tunnel) keeps running in the background.
+    // Returning false cancels the close. Wrapped in try/catch because this
+    // event is only available on desktop-class devices.
+    try {
+      stage.on('windowStageClose', (): boolean => {
+        try {
+          stage.getMainWindowSync().minimize();
+        } catch (e) {
+          log.warn('minimize on close failed', e as Object);
+        }
+        return false;
+      });
+    } catch (e) {
+      log.warn('windowStageClose not supported', e as Object);
+    }
   }
 }

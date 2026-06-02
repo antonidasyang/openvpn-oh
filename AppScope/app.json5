@@ -1,6 +1,6 @@
 {
   "app": {
-    "bundleName": "com.ovpn.harmony",
+    "bundleName": "com.d2ssoft.ovpn",
     "vendor": "openvpn-oh",
     "versionCode": 1000000,
     "versionName": "0.1.0",

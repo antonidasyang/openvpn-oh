@@ -6,7 +6,6 @@ import { VpnController } from '../service/VpnController';
 import { VpnState, VpnStateData } from '../model/VpnState';
 import { Profile } from '../model/Profile';
 
-import { OvpnEngine } from '../service/OvpnEngine';
 import { StatusPill } from '../components/StatusPill';
 import { StatsCard } from '../components/StatsCard';
 
@@ -114,17 +113,34 @@ struct ProfileDetail {
     .width('100%')
   }
 
+  private isConnected(): boolean {
+    return this.state.phase === 'CONNECTED' || this.state.phase === 'RECONNECTING';
+  }
+
+  // True while a connection attempt is in flight — anything that is neither a
+  // resting state (idle/error) nor fully connected. The user must always be
+  // able to cancel these, otherwise a stuck handshake leaves no way out.
+  private isBusy(): boolean {
+    const p = this.state.phase;
+    return p !== 'DISCONNECTED' && p !== 'ERROR' && !this.isConnected();
+  }
+
   @Builder
   private ConnectArea() {
     Column({ space: 12 }) {
       StatusPill({ phase: this.state.phase })
-      if (this.state.phase === 'CONNECTED' || this.state.phase === 'RECONNECTING') {
+      if (this.isConnected()) {
         StatsCard({
           bytesIn:        Number(this.state.stats.bytesIn),
           bytesOut:       Number(this.state.stats.bytesOut),
           connectedSince: this.state.connectedSince,
         })
         Button($r('app.string.action_disconnect'))
+          .width('100%')
+          .backgroundColor($r('app.color.status_error'))
+          .onClick((): void => { VpnController.stop(); })
+      } else if (this.isBusy()) {
+        Button($r('app.string.action_cancel'))
           .width('100%')
           .backgroundColor($r('app.color.status_error'))
           .onClick((): void => { VpnController.stop(); })
@@ -219,15 +235,12 @@ struct ProfileDetail {
   }
 
   private detectKeyPassword(configText: string): boolean {
-    const engine = new OvpnEngine();
-    try {
-      const r = engine.evalConfig(configText);
-      return !r.error && r.privateKeyPasswordRequired;
-    } catch (e) {
-      return false;
-    } finally {
-      engine.dispose();
-    }
+    // Detect an encrypted inline private key by its PEM markers. This is a pure
+    // string scan on purpose: never create/run the native engine on the UI
+    // thread — that call can block and freezes the whole app.
+    const hasEncPkcs8 = configText.includes('ENCRYPTED PRIVATE KEY');
+    const hasEncPem = configText.includes('Proc-Type') && configText.includes('ENCRYPTED');
+    return hasEncPkcs8 || hasEncPem;
   }
 
   private async connect(): Promise<void> {

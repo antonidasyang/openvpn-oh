@@ -12,6 +12,7 @@
 
     { "name": "action_connect", "value": "Connect" },
     { "name": "action_disconnect", "value": "Disconnect" },
+    { "name": "action_cancel", "value": "Cancel" },
     { "name": "action_import_file", "value": "Choose .ovpn file" },
     { "name": "action_import_paste", "value": "Paste config text" },
     { "name": "action_save", "value": "Save" },

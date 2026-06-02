@@ -12,6 +12,7 @@
 
     { "name": "action_connect", "value": "连接" },
     { "name": "action_disconnect", "value": "断开" },
+    { "name": "action_cancel", "value": "取消" },
     { "name": "action_import_file", "value": "选择 .ovpn 文件" },
     { "name": "action_import_paste", "value": "粘贴配置文本" },
     { "name": "action_save", "value": "保存" },

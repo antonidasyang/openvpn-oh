@@ -52,20 +52,19 @@ export default class EntryAbility extends UIAbility {
       if (err) log.error('loadContent failed', err);
     });
 
-    // On 2-in-1/PC, intercept the title-bar close button: instead of exiting,
-    // minimize so the app (and the VPN tunnel) keeps running in the background.
-    // Returning false cancels the close. Wrapped in try/catch because this
-    // event is only available on desktop-class devices.
+    // On 2-in-1/PC, intercept the title-bar close button so we can ask the
+    // user (minimize / background / exit) instead of just quitting. For
+    // windowStageClose, returning TRUE keeps the window open (intercepts the
+    // close); FALSE lets it close. Wrapped in try/catch because this event is
+    // only available on desktop-class devices.
     try {
       stage.on('windowStageClose', (): boolean => {
-        // Cancel the system close and let the UI ask the user whether to
-        // minimize (keep the tunnel running) or exit.
         try {
           emitter.emit({ eventId: EVENT_CLOSE_REQUEST });
         } catch (e) {
           log.warn('emit close-request failed', e as Object);
         }
-        return false;
+        return true;
       });
     } catch (e) {
       log.warn('windowStageClose not supported', e as Object);

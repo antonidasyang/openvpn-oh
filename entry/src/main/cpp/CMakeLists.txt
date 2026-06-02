@@ -72,7 +72,11 @@ target_compile_definitions(ovpncli_obj PRIVATE
     # when __linux__ is set (true for the OHOS NDK target). We add only the
     # OHOS-specific flag here; doubling up triggers -Wmacro-redefined.
     OPENVPN_PLATFORM_OHOS
-    OPENVPN_FORCE_TUN_NULL=0
+    # Drive the tun via our TunBuilderBase overrides (tun_builder_* ->
+    # VpnConnection). NOTE: do NOT define OPENVPN_FORCE_TUN_NULL here — ovpncli
+    # gates it with `#if defined(...)`, so even `=0` forces the null tun (the
+    # tunnel connects but no real interface/IP is ever created).
+    USE_TUN_BUILDER
     OPENVPN_LOG_LOGBASE_H
 )
 target_compile_options(ovpncli_obj PRIVATE
@@ -105,6 +109,9 @@ target_compile_definitions(ovpnclient PRIVATE
     HAVE_LZ4
     # See note above re: OPENVPN_PLATFORM_LINUX.
     OPENVPN_PLATFORM_OHOS
+    # Keep tun-builder headers consistent with ovpncli_obj (ovpn_client.cpp
+    # overrides TunBuilderBase).
+    USE_TUN_BUILDER
 )
 
 target_link_libraries(ovpnclient PRIVATE

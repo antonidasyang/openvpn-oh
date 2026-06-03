@@ -179,8 +179,15 @@ class CredentialStoreImpl {
 
   private async unseal(ciphertextB64: string, ivB64: string): Promise<string> {
     const b64 = new util.Base64Helper();
-    const iv         = b64.decodeSync(ivB64);
-    const ciphertext = b64.decodeSync(ciphertextB64);
+    const iv   = b64.decodeSync(ivB64);
+    // HUKS AES-GCM encrypt output is ciphertext followed by the 16-byte AEAD
+    // tag. Decryption must pass that tag via HUKS_TAG_AE_TAG and feed only the
+    // ciphertext as inData. Missing this made every unseal fail, so cached
+    // passwords were never actually restored.
+    const full = b64.decodeSync(ciphertextB64);
+    const TAG_LEN = 16;
+    const ct  = full.slice(0, full.length - TAG_LEN);
+    const tag = full.slice(full.length - TAG_LEN);
 
     const props: huks.HuksParam[] = [
       { tag: huks.HuksTag.HUKS_TAG_ALGORITHM, value: huks.HuksKeyAlg.HUKS_ALG_AES },
@@ -189,10 +196,11 @@ class CredentialStoreImpl {
       { tag: huks.HuksTag.HUKS_TAG_BLOCK_MODE, value: huks.HuksCipherMode.HUKS_MODE_GCM },
       { tag: huks.HuksTag.HUKS_TAG_PADDING,    value: huks.HuksKeyPadding.HUKS_PADDING_NONE },
       { tag: huks.HuksTag.HUKS_TAG_IV, value: iv },
+      { tag: huks.HuksTag.HUKS_TAG_AE_TAG, value: tag },
     ];
     const opts: huks.HuksOptions = {
       properties: props,
-      inData: ciphertext,
+      inData: ct,
     };
 
     const session = await huks.initSession(HUKS_ALIAS, opts);

@@ -62,11 +62,19 @@ struct Index {
       message: '最小化到托盘后台运行，还是退出？',
       buttons: [
         {
-          value: '最小化',
+          // Move the ability to the background (keeps the process + tray icon
+          // alive). On PC this hides the window; if it leaves a taskbar entry,
+          // fall back is plain minimize.
+          value: '最小化到托盘',
           action: (): void => {
-            window.getLastWindow(getContext(this))
-              .then((w: window.Window): Promise<void> => w.minimize())
-              .catch((e: Object): void => { console.error('minimize failed', JSON.stringify(e)); });
+            const ctx = getContext(this) as common.UIAbilityContext;
+            ctx.moveAbilityToBackground()
+              .catch((e: Object): void => {
+                console.error('moveToBackground failed', JSON.stringify(e));
+                window.getLastWindow(ctx)
+                  .then((w: window.Window): Promise<void> => w.minimize())
+                  .catch((err: Object): void => { console.error('minimize failed', JSON.stringify(err)); });
+              });
           },
         },
         {
@@ -212,33 +220,31 @@ struct Index {
         Text(this.selectedDisplayName())
           .fontSize(20).fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.on_surface'))
-        // Live status/stats only when the selected profile is the connected one.
-        if (this.isSelectedActive()) {
+        if (this.isConnectedThis()) {
           StatusPill({ phase: this.state.phase })
           StatsCard({
             bytesIn:        Number(this.state.stats.bytesIn),
             bytesOut:       Number(this.state.stats.bytesOut),
             connectedSince: this.state.connectedSince,
           })
-          if (this.state.phase === 'CONNECTED' || this.state.phase === 'RECONNECTING') {
-            Button($r('app.string.action_disconnect'))
-              .width('100%')
-              .backgroundColor($r('app.color.status_error'))
-              .onClick((): void => { VpnController.stop(); })
-          } else {
-            Button($r('app.string.action_cancel'))
-              .width('100%')
-              .backgroundColor($r('app.color.status_error'))
-              .onClick((): void => { VpnController.stop(); })
-          }
-          if (this.state.lastError) {
+          Button($r('app.string.action_disconnect'))
+            .width('100%')
+            .backgroundColor($r('app.color.status_error'))
+            .onClick((): void => { VpnController.stop(); })
+        } else if (this.isBusyThis()) {
+          StatusPill({ phase: this.state.phase })
+          Button($r('app.string.action_cancel'))
+            .width('100%')
+            .backgroundColor($r('app.color.status_error'))
+            .onClick((): void => { VpnController.stop(); })
+        } else {
+          // Idle or error for this profile (or a different one is connected):
+          // show the connect form so the user can (re)enter the password and
+          // retry. Connecting auto-disconnects any other active tunnel.
+          if (this.isSelectedActive() && this.state.lastError) {
             Text(this.state.lastError)
               .fontSize(13).fontColor($r('app.color.status_error'))
-          }
-        } else {
-          // A different profile is connected — connecting this one will
-          // automatically disconnect it first (only one tunnel at a time).
-          if (this.state.phase !== 'DISCONNECTED') {
+          } else if (!this.isSelectedActive() && this.state.phase !== 'DISCONNECTED') {
             Text(`${this.state.activeProfileName} 已连接 — 连接此配置会自动断开它`)
               .fontSize(13).fontColor($r('app.color.on_surface_dim'))
           }
@@ -265,6 +271,21 @@ struct Index {
 
   private isSelectedActive(): boolean {
     return !!this.selectedId && this.state.activeProfileId === this.selectedId;
+  }
+
+  // This profile is the connected one.
+  private isConnectedThis(): boolean {
+    return this.isSelectedActive() &&
+      (this.state.phase === 'CONNECTED' || this.state.phase === 'RECONNECTING');
+  }
+
+  // This profile is mid-connection (so we offer Cancel). ERROR/DISCONNECTED are
+  // NOT busy — those fall through to the connect form so the user can retry.
+  private isBusyThis(): boolean {
+    const p = this.state.phase;
+    return this.isSelectedActive() &&
+      p !== 'DISCONNECTED' && p !== 'ERROR' &&
+      p !== 'CONNECTED' && p !== 'RECONNECTING';
   }
 
   private async openProfile(p: Profile): Promise<void> {

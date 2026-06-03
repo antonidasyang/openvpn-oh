@@ -62,19 +62,11 @@ struct Index {
       message: '最小化到托盘后台运行，还是退出？',
       buttons: [
         {
-          // Move the ability to the background (keeps the process + tray icon
-          // alive). On PC this hides the window; if it leaves a taskbar entry,
-          // fall back is plain minimize.
-          value: '最小化到托盘',
+          value: '最小化',
           action: (): void => {
-            const ctx = getContext(this) as common.UIAbilityContext;
-            ctx.moveAbilityToBackground()
-              .catch((e: Object): void => {
-                console.error('moveToBackground failed', JSON.stringify(e));
-                window.getLastWindow(ctx)
-                  .then((w: window.Window): Promise<void> => w.minimize())
-                  .catch((err: Object): void => { console.error('minimize failed', JSON.stringify(err)); });
-              });
+            window.getLastWindow(getContext(this))
+              .then((w: window.Window): Promise<void> => w.minimize())
+              .catch((e: Object): void => { console.error('minimize failed', JSON.stringify(e)); });
           },
         },
         {

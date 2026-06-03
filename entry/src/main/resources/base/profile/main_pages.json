@@ -3,6 +3,7 @@
     "pages/Index",
     "pages/ImportConfig",
     "pages/ProfileDetail",
-    "pages/LogView"
+    "pages/LogView",
+    "pages/TrayPopup"
   ]
 }

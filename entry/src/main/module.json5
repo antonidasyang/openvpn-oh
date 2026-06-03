@@ -35,6 +35,13 @@
         "icon": "$media:app_icon",
         "type": "vpn",
         "exported": false
+      },
+      {
+        "name": "StatusBarViewAbility",
+        "srcEntry": "./ets/statusbarview/StatusBarViewAbility.ets",
+        "description": "$string:vpn_service_desc",
+        "type": "statusBarView",
+        "exported": true
       }
     ],
     "requestPermissions": [

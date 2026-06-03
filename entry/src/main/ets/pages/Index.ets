@@ -7,7 +7,6 @@ import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore } from '../model/CredentialStore';
 import { VpnState, VpnStateData } from '../model/VpnState';
 import { VpnController } from '../service/VpnController';
-import { VpnNotification } from '../service/VpnNotification';
 import { EVENT_CLOSE_REQUEST } from '../service/CommonEvents';
 import { Profile } from '../model/Profile';
 
@@ -58,7 +57,9 @@ struct Index {
   private onCloseRequest(): void {
     AlertDialog.show({
       title: 'D2SVPN',
-      message: '要怎么处理 D2SVPN？',
+      // Minimize keeps the app (and the tray icon) alive; the tray icon's
+      // right-click menu controls connections in the background. Exit quits.
+      message: '最小化到托盘后台运行，还是退出？',
       buttons: [
         {
           value: '最小化',
@@ -66,21 +67,6 @@ struct Index {
             window.getLastWindow(getContext(this))
               .then((w: window.Window): Promise<void> => w.minimize())
               .catch((e: Object): void => { console.error('minimize failed', JSON.stringify(e)); });
-          },
-        },
-        {
-          // Close the window (leaves the taskbar) but keep running in the
-          // background. Publish the ongoing "tray" notification ourselves so it
-          // is always present here — even when not connected — then close.
-          value: '后台运行',
-          action: (): void => {
-            const ctx = getContext(this) as common.UIAbilityContext;
-            VpnNotification.init(ctx, ctx.abilityInfo.bundleName);
-            const connected = this.state.phase === 'CONNECTED' || this.state.phase === 'RECONNECTING';
-            const text = connected ? `已连接 ${this.state.activeProfileName}` : '在后台运行';
-            VpnNotification.show('D2SVPN', text, this.state.activeProfileId)
-              .then((): void => { ctx.terminateSelf(); })
-              .catch((): void => { ctx.terminateSelf(); });
           },
         },
         {

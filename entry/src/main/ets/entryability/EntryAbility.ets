@@ -3,6 +3,7 @@ import { window } from '@kit.ArkUI';
 import { emitter } from '@kit.BasicServicesKit';
 import notificationManager from '@ohos.notificationManager';
 import { EVENT_CLOSE_REQUEST } from '../service/CommonEvents';
+import { TrayService } from '../service/TrayService';
 import { Profile } from '../model/Profile';
 import { logger } from '../util/Logger';
 import { ProfileStore } from '../model/ProfileStore';
@@ -51,6 +52,9 @@ export default class EntryAbility extends UIAbility {
     await stage.loadContent('pages/Index', (err) => {
       if (err) log.error('loadContent failed', err);
     });
+
+    // Install the system-tray icon + menu (HarmonyOS PC). No-op on phones.
+    TrayService.init(this.context);
 
     // On 2-in-1/PC, intercept the title-bar close button so we can ask the
     // user (minimize / background / exit) instead of just quitting. For

@@ -179,10 +179,22 @@ class TrayServiceImpl {
       .catch((e: Object): void => log.warn('showWindow failed', e as Object));
   }
 
-  private exitApp(): void {
-    VpnController.stop();
+  private async exitApp(): Promise<void> {
+    // Tear down the tunnel (and the VPN extension) first, then kill every
+    // process of the app. terminateSelf() only ends the UIAbility, leaving the
+    // VPN / statusBarView extension processes alive — which is why DevEco kept
+    // showing the app as running after "退出". killAllProcesses() takes the
+    // whole app down.
+    await VpnController.stop();
     this.remove();
-    if (this.ctx) this.ctx.terminateSelf();
+    const ctx = this.ctx;
+    if (!ctx) return;
+    try {
+      await ctx.getApplicationContext().killAllProcesses();
+    } catch (e) {
+      log.warn('killAllProcesses failed; falling back to terminateSelf', e as Object);
+      try { await ctx.terminateSelf(); } catch (_e) { /* ignore */ }
+    }
   }
 
   private async subscribeState(): Promise<void> {

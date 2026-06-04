@@ -1,11 +1,10 @@
-import commonEventManager from '@ohos.commonEventManager';
 import { common, Want } from '@kit.AbilityKit';
-import { BusinessError } from '@ohos.base';
-import { EV_TRAY_EXIT } from '../service/CommonEvents';
 
 // Left-click popup for the tray icon. Runs in the StatusBarView UIExtension
 // process. "打开主窗口" launches EntryAbility via this UIExtension's own
-// context; "退出" tells the VPN extension (which owns the tray) to quit.
+// context. Exit lives only in the right-click menu (TrayService.exitApp), which
+// runs in the UI process and can actually tear the app down — a 退出 button
+// here would be a dead duplicate (this process can't kill the UI process).
 @Entry
 @Component
 struct TrayPopup {
@@ -25,11 +24,6 @@ struct TrayPopup {
     }
   }
 
-  private exit(): void {
-    const opts: commonEventManager.CommonEventPublishData = {};
-    commonEventManager.publish(EV_TRAY_EXIT, opts, (_err: BusinessError): void => { /* ignore */ });
-  }
-
   build() {
     Column({ space: 8 }) {
       Text('D2SVPN')
@@ -38,10 +32,6 @@ struct TrayPopup {
       Button('打开主窗口')
         .width('100%')
         .onClick((): void => { this.openMain(); })
-      Button('退出')
-        .width('100%')
-        .backgroundColor('#E0413A')
-        .onClick((): void => { this.exit(); })
     }
     .width('100%')
     .height('100%')

@@ -164,13 +164,14 @@ class TrayServiceImpl {
   }
 
   private registerEvents(): void {
-    if (!canIUse('SystemCapability.PCService.StatusBarManager')) return;
     try {
-      statusBarManager.on('rightMenuClick', (ev: emitter.EventData): void => {
-        const code = this.codeOf(ev);
-        log.info('rightMenuClick', `${code} raw=${JSON.stringify(ev)}`);
-        if (code) this.dispatch(code);
-      });
+      if (canIUse('SystemCapability.PCService.StatusBarManager')) {
+        statusBarManager.on('rightMenuClick', (ev: emitter.EventData): void => {
+          const code = this.codeOf(ev);
+          log.info('rightMenuClick', `${code} raw=${JSON.stringify(ev)}`);
+          if (code) this.dispatch(code);
+        });
+      }
     } catch (e) {
       log.warn('on(rightMenuClick) failed', e as Object);
     }

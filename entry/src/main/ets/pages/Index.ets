@@ -176,11 +176,7 @@ struct Index {
           .fontColor($r('app.color.on_surface'))
         if (this.isConnectedThis()) {
           StatusPill({ phase: this.state.phase })
-          StatsCard({
-            bytesIn:        Number(this.state.stats.bytesIn),
-            bytesOut:       Number(this.state.stats.bytesOut),
-            connectedSince: this.state.connectedSince,
-          })
+          StatsCard()
           Button($r('app.string.action_disconnect'))
             .width('100%')
             .backgroundColor($r('app.color.status_error'))

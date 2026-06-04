@@ -132,11 +132,7 @@ struct ProfileDetail {
     Column({ space: 12 }) {
       StatusPill({ phase: this.state.phase })
       if (this.isConnected()) {
-        StatsCard({
-          bytesIn:        Number(this.state.stats.bytesIn),
-          bytesOut:       Number(this.state.stats.bytesOut),
-          connectedSince: this.state.connectedSince,
-        })
+        StatsCard()
         Button($r('app.string.action_disconnect'))
           .width('100%')
           .backgroundColor($r('app.color.status_error'))

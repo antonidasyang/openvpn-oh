@@ -19,13 +19,17 @@ function formatDuration(sinceMs: number): string {
   return h > 0 ? `${h}:${two(m)}:${two(s)}` : `${two(m)}:${two(s)}`;
 }
 
-@Component
+// @ComponentV2 so it stays reactive under the @ComponentV2 parent (Index) +
+// @ObservedV2/@Trace VpnState. A V1 (@Component/@Prop) child under a V2 parent
+// does not refresh its props reliably — which made the byte counters only
+// update on navigation.
+@ComponentV2
 export struct StatsCard {
-  @Prop bytesIn: number = 0;
-  @Prop bytesOut: number = 0;
-  @Prop connectedSince: number = 0;
+  @Param bytesIn: number = 0;
+  @Param bytesOut: number = 0;
+  @Param connectedSince: number = 0;
   // Drives 1Hz redraws so the duration ticks even when nothing else changes.
-  @State private tick: number = 0;
+  @Local private tick: number = 0;
   private timer: number = -1;
 
   aboutToAppear(): void {
@@ -35,11 +39,19 @@ export struct StatsCard {
     if (this.timer !== -1) clearInterval(this.timer);
   }
 
+  // Reads this.tick so the duration row re-renders every second under V2
+  // (where only expressions that read a @Local re-evaluate on its change).
+  private durationText(): string {
+    // Reading this.tick (which increments every second) registers the
+    // reactive dependency that re-evaluates this row once per second.
+    return this.tick >= 0 ? formatDuration(this.connectedSince) : '';
+  }
+
   build() {
     Column({ space: 12 }) {
       this.Row($r('app.string.label_bytes_in'),   formatBytes(this.bytesIn))
       this.Row($r('app.string.label_bytes_out'),  formatBytes(this.bytesOut))
-      this.Row($r('app.string.label_duration'),   formatDuration(this.connectedSince))
+      this.Row($r('app.string.label_duration'),   this.durationText())
     }
     .padding(16)
     .borderRadius(16)

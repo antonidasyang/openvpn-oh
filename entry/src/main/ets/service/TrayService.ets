@@ -50,8 +50,9 @@ class TrayServiceImpl {
       };
       statusBarManager.addToStatusBar(ctx, item);
       this.installed = true;
+      log.info('addToStatusBar OK (UI process)');
     } catch (e) {
-      log.warn('tray install failed', e as Object);
+      log.error('addToStatusBar FAILED (UI process)', JSON.stringify(e));
       return;
     }
     this.registerEvents();

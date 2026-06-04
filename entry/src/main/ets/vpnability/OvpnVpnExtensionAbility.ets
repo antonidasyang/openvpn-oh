@@ -355,8 +355,9 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
       await backgroundTaskManager.startBackgroundRunning(
         this.context, backgroundTaskManager.BackgroundMode.DATA_TRANSFER, agent);
       this.bgRunning = true;
+      log.info('startBackgroundRunning OK');
     } catch (e) {
-      log.warn('startBackgroundRunning failed', e as Object);
+      log.error('startBackgroundRunning FAILED', JSON.stringify(e));
     }
   }
 

@@ -59,7 +59,8 @@ export class ExtTray {
 
   // Show (or refresh) the tray for the connected profile.
   show(profileName: string): void {
-    if (!this.ctx || !this.icon) return;
+    if (!this.ctx) { log.error('tray show: no context'); return; }
+    if (!this.icon) { log.error('tray show: icon not loaded'); return; }
     try {
       if (this.shown) {
         statusBarManager.updateStatusBarMenu(this.ctx, this.menu(profileName));
@@ -75,9 +76,10 @@ export class ExtTray {
         };
         statusBarManager.addToStatusBar(this.ctx, item);
         this.shown = true;
+        log.info('addToStatusBar OK');
       }
     } catch (e) {
-      log.warn('show tray failed', e as Object);
+      log.error('addToStatusBar FAILED', JSON.stringify(e));
     }
   }
 

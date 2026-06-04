@@ -36,6 +36,15 @@ class TrayServiceImpl {
       return;
     }
     this.ctx = ctx;
+    // Clear any stale icon this bundle may have left behind (e.g. a previous
+    // run whose exit never destroyed the process). Without this, addToStatusBar
+    // can stack a second icon — each with its own menu, hence "two 退出".
+    try {
+      statusBarManager.removeFromStatusBar(ctx);
+      log.info('removeFromStatusBar (clear stale) OK');
+    } catch (e) {
+      log.info('removeFromStatusBar (clear stale) skipped', JSON.stringify(e));
+    }
     try {
       this.icon = await this.loadIcon(ctx);
       const item: statusBarManager.StatusBarItem = {
@@ -89,9 +98,12 @@ class TrayServiceImpl {
         const mi: statusBarManager.StatusBarMenuItem = { title: p.displayName, subMenu: sub };
         return mi;
       });
+    // menuCode is set on BOTH the item (new API, since 6.1.1/API24) and the
+    // action (legacy, deprecated since API24) so the rightMenuClick event
+    // delivers the code regardless of device version.
     const appGroup: statusBarManager.StatusBarMenuItem[] = [
-      { title: '打开主窗口', menuAction: this.action('open') },
-      { title: '退出', menuAction: this.action('exit') },
+      { title: '打开主窗口', menuCode: 'open', menuAction: this.action('open') },
+      { title: '退出', menuCode: 'exit', menuAction: this.action('exit') },
     ];
     const groups: statusBarManager.StatusBarGroupMenu[] = [];
     if (profileGroup.length > 0) groups.push(profileGroup);
@@ -100,7 +112,7 @@ class TrayServiceImpl {
   }
 
   private subItem(title: string, code: string): statusBarManager.StatusBarSubMenuItem {
-    return { subTitle: title, menuAction: this.action(code) };
+    return { subTitle: title, menuCode: code, menuAction: this.action(code) };
   }
 
   private action(code: string): statusBarManager.StatusBarMenuAction {
@@ -150,8 +162,13 @@ class TrayServiceImpl {
   private codeOf(ev: emitter.EventData): string {
     const d = ev.data as Record<string, Object> | undefined;
     if (!d) return '';
-    const c = d['menuCode'];
-    return typeof c === 'string' ? c as string : '';
+    // The code may arrive under a few different keys across device versions.
+    const keys: string[] = ['menuCode', 'code', 'menuId', 'id'];
+    for (const k of keys) {
+      const c = d[k];
+      if (typeof c === 'string' && (c as string).length > 0) return c as string;
+    }
+    return '';
   }
 
   private dispatch(code: string): void {
@@ -185,12 +202,14 @@ class TrayServiceImpl {
     // VPN / statusBarView extension processes alive — which is why DevEco kept
     // showing the app as running after "退出". killAllProcesses() takes the
     // whole app down.
-    await VpnController.stop();
+    log.info('exitApp invoked');
+    try { await VpnController.stop(); } catch (e) { log.warn('stop in exit failed', e as Object); }
     this.remove();
     const ctx = this.ctx;
-    if (!ctx) return;
+    if (!ctx) { log.warn('exitApp: no ctx'); return; }
     try {
       await ctx.getApplicationContext().killAllProcesses();
+      log.info('killAllProcesses OK');
     } catch (e) {
       log.warn('killAllProcesses failed; falling back to terminateSelf', e as Object);
       try { await ctx.terminateSelf(); } catch (_e) { /* ignore */ }

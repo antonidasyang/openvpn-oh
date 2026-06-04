@@ -18,6 +18,7 @@
         "startWindowIcon": "$media:app_icon",
         "startWindowBackground": "$color:start_bg",
         "exported": true,
+        "backgroundModes": ["dataTransfer"],
         "skills": [
           {
             "entities": ["entity.system.home"],

@@ -98,12 +98,13 @@ class TrayServiceImpl {
         const mi: statusBarManager.StatusBarMenuItem = { title: p.displayName, subMenu: sub };
         return mi;
       });
-    // menuCode lives on StatusBarMenuAction (the field exists on this SDK, API
-    // 23 / 6.1.0). The newer StatusBarMenuItem.menuCode is only since API 24,
-    // so we can't set it here without breaking the build.
+    // NOTE: no 退出 here on purpose. The system attaches its own default tray
+    // menu (app icon + 退出) to every status-bar icon, and that OS-level 退出
+    // properly destroys the process. Adding our own 退出 produced a visible
+    // duplicate ("two 退出"). menuCode lives on StatusBarMenuAction (the field
+    // exists on API 23 / 6.1.0; StatusBarMenuItem.menuCode is only since API24).
     const appGroup: statusBarManager.StatusBarMenuItem[] = [
       { title: '打开主窗口', menuAction: this.action('open') },
-      { title: '退出', menuAction: this.action('exit') },
     ];
     const groups: statusBarManager.StatusBarGroupMenu[] = [];
     if (profileGroup.length > 0) groups.push(profileGroup);

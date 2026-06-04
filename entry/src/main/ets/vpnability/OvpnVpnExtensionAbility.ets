@@ -10,9 +10,10 @@ import { Profile } from '../model/Profile';
 import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore } from '../model/CredentialStore';
 import { VpnNotification } from '../service/VpnNotification';
+import { ExtTray } from '../service/ExtTray';
 import {
   EV_COMMAND_STOP, EV_COMMAND_PAUSE, EV_COMMAND_RESUME, EV_COMMAND_CREDS,
-  EV_STATE_CHANGED, EV_LOG_LINE, EV_STATS_UPDATE,
+  EV_STATE_CHANGED, EV_LOG_LINE, EV_STATS_UPDATE, EV_TRAY_OPEN, EV_TRAY_EXIT,
   CredsCommandPayload, StateChangedPayload, StatsPayload,
 } from '../service/CommonEvents';
 import { logger } from '../util/Logger';
@@ -31,6 +32,9 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
   private currentProfileId: string = '';
   private currentProfileName: string = '';
   private bundleName: string = '';
+  private tray: ExtTray = new ExtTray();
+  // Saved so the tray's 重连 can rebuild the tunnel from scratch.
+  private connectParams?: Record<string, Object>;
   // Appended to error messages so the on-screen red text reveals whether the
   // private-key password actually reached this (separate) process.
   private diag: string = '';
@@ -41,6 +45,7 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
     await ProfileStore.init(this.context);
     await CredentialStore.init(this.context);
     VpnNotification.init(this.context, this.bundleName);
+    await this.tray.init(this.context, (code: string): void => { this.onTrayAction(code); });
     this.connection = vpnExtension.createVpnConnection(this.context);
     await this.subscribeCommands();
 
@@ -54,6 +59,7 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
 
   async onDestroy(): Promise<void> {
     log.info('onDestroy');
+    this.tray.cancel();
     await VpnNotification.cancel();
     this.stopStatsTimer();
     if (this.engine) {
@@ -75,7 +81,8 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
 
   private async subscribeCommands(): Promise<void> {
     const info: commonEventManager.CommonEventSubscribeInfo = {
-      events: [EV_COMMAND_STOP, EV_COMMAND_PAUSE, EV_COMMAND_RESUME, EV_COMMAND_CREDS],
+      events: [EV_COMMAND_STOP, EV_COMMAND_PAUSE, EV_COMMAND_RESUME, EV_COMMAND_CREDS,
+               EV_TRAY_OPEN, EV_TRAY_EXIT],
     };
     this.subscriber = await commonEventManager.createSubscriber(info);
     commonEventManager.subscribe(this.subscriber,
@@ -88,6 +95,15 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
   private async handleCommand(data: commonEventManager.CommonEventData): Promise<void> {
     if (data.event === EV_COMMAND_STOP) {
       this.engine?.stop();
+      return;
+    }
+    if (data.event === EV_TRAY_EXIT) {
+      this.onTrayAction('exit');
+      return;
+    }
+    if (data.event === EV_TRAY_OPEN) {
+      // The left-click popup opens the main window via its own UIExtension
+      // context; nothing to do here.
       return;
     }
     if (data.event === EV_COMMAND_PAUSE) {
@@ -114,6 +130,7 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
   // ---------- Tunnel lifecycle ----------
 
   private async startTunnel(profileId: string, params: Record<string, Object>): Promise<void> {
+    this.connectParams = params;
     // Prefer the profile payload carried in the Want — preferences is not
     // cross-process safe, so ProfileStore.get may not see what the UI saved.
     // Fall back to ProfileStore only if the Want did not carry the config.
@@ -268,16 +285,57 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
     log.info('event', ev.name, ev.info);
     this.broadcastState(ev.name, ev.info, ev.code,
                         this.currentProfileId, this.currentProfileName);
-    // Keep the ongoing "tray" notification in sync with the tunnel state.
+    // Keep the system-tray icon (+ notification) in sync with the tunnel.
     if (ev.name === 'CONNECTED') {
+      this.tray.show(this.currentProfileName);
       VpnNotification.show('D2SVPN', `已连接 ${this.currentProfileName}`, this.currentProfileId);
     } else if (ev.name === 'RECONNECTING') {
+      this.tray.show(this.currentProfileName);
       VpnNotification.show('D2SVPN', `重新连接 ${this.currentProfileName}…`, this.currentProfileId);
     }
     if (ev.name === 'DISCONNECTED' || ev.fatal) {
+      this.tray.cancel();
       this.stopStatsTimer();
       setTimeout((): void => this.terminate(), 500);
     }
+  }
+
+  // ---------- Tray menu actions (run in this extension process) ----------
+
+  private onTrayAction(code: string): void {
+    if (code === 'dis') {
+      this.engine?.stop();           // -> DISCONNECTED -> tray.cancel + terminate
+    } else if (code === 'rec') {
+      this.reconnect().catch((e: Object): void => log.error('reconnect failed', e));
+    } else if (code === 'exit') {
+      try { this.engine?.stop(); } catch (e) { log.warn('exit stop threw', e as Object); }
+      this.tray.cancel();
+      this.terminate();
+    }
+    // 'open' is a notifyOnly:false menu action: the system launches
+    // EntryAbility directly, so it never reaches here.
+  }
+
+  // Full restart of the tunnel from the saved connect params (no window).
+  private async reconnect(): Promise<void> {
+    const params = this.connectParams;
+    const pid = this.currentProfileId;
+    if (!params) return;
+    this.stopStatsTimer();
+    if (this.engine) {
+      // Detach the listener first so the old engine's DISCONNECTED doesn't
+      // trigger tray.cancel + terminate while we're rebuilding.
+      try { this.engine.setEventListener((_ev: OvpnEvent): void => { /* ignore */ }); } catch (e) { /* ignore */ }
+      try { this.engine.stop(); } catch (e) { log.warn('reconnect stop threw', e as Object); }
+      this.engine.dispose();
+      this.engine = undefined;
+    }
+    if (this.connection) {
+      try { this.connection.destroy(); } catch (e) { log.warn('reconnect destroy threw', e as Object); }
+      this.connection = undefined;
+    }
+    this.connection = vpnExtension.createVpnConnection(this.context);
+    await this.startTunnel(pid, params);
   }
 
   // VpnExtensionContext has no terminateSelf(), unlike UIAbilityContext.

@@ -1,13 +1,10 @@
-import { router, window } from '@kit.ArkUI';
+import { router } from '@kit.ArkUI';
 import mediaquery from '@ohos.mediaquery';
-import { common } from '@kit.AbilityKit';
-import { emitter } from '@kit.BasicServicesKit';
 
 import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore } from '../model/CredentialStore';
 import { VpnState, VpnStateData } from '../model/VpnState';
 import { VpnController } from '../service/VpnController';
-import { EVENT_CLOSE_REQUEST } from '../service/CommonEvents';
 import { Profile } from '../model/Profile';
 
 import { ProfileListItem } from '../components/ProfileListItem';
@@ -41,45 +38,11 @@ struct Index {
       this.isWide = r.matches;
     });
     this.isWide = this.mqListener.matches;
-
-    // The ability cancels the window close and asks us to confirm what to do.
-    emitter.on({ eventId: EVENT_CLOSE_REQUEST }, (): void => { this.onCloseRequest(); });
   }
 
   aboutToDisappear(): void {
     if (this.unsubscribe) this.unsubscribe();
     if (this.mqListener) this.mqListener.off('change');
-    emitter.off(EVENT_CLOSE_REQUEST);
-  }
-
-  // Triggered when the user presses the window close button. Ask whether to
-  // keep running in the background (minimize) or fully quit.
-  private onCloseRequest(): void {
-    AlertDialog.show({
-      title: 'D2SVPN',
-      // Minimize keeps the app (and the tray icon) alive; the tray icon's
-      // right-click menu controls connections in the background. Exit quits.
-      message: '最小化到托盘后台运行，还是退出？',
-      buttons: [
-        {
-          value: '最小化',
-          action: (): void => {
-            window.getLastWindow(getContext(this))
-              .then((w: window.Window): Promise<void> => w.minimize())
-              .catch((e: Object): void => { console.error('minimize failed', JSON.stringify(e)); });
-          },
-        },
-        {
-          value: '退出',
-          fontColor: $r('app.color.status_error'),
-          action: (): void => {
-            VpnController.stop();
-            (getContext(this) as common.UIAbilityContext).terminateSelf();
-          },
-        },
-      ],
-      buttonDirection: DialogButtonDirection.VERTICAL,
-    });
   }
 
   build() {

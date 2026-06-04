@@ -1,9 +1,6 @@
 import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
-import { emitter } from '@kit.BasicServicesKit';
 import notificationManager from '@ohos.notificationManager';
-import { EVENT_CLOSE_REQUEST } from '../service/CommonEvents';
-import { TrayService } from '../service/TrayService';
 import { Profile } from '../model/Profile';
 import { logger } from '../util/Logger';
 import { ProfileStore } from '../model/ProfileStore';
@@ -30,7 +27,7 @@ export default class EntryAbility extends UIAbility {
     await this.handleNotifAction(want);
   }
 
-  // Act on a tap from the ongoing notification (e.g. its 重连 button).
+  // Act on a tap from the tray/notification reconnect action.
   private async handleNotifAction(want: Want): Promise<void> {
     const params = want.parameters ?? ({} as Record<string, Object>);
     const action: string = (params['notifAction'] as string) ?? '';
@@ -52,26 +49,10 @@ export default class EntryAbility extends UIAbility {
     await stage.loadContent('pages/Index', (err) => {
       if (err) log.error('loadContent failed', err);
     });
-
-    // Install the system-tray icon + menu (HarmonyOS PC). No-op on phones.
-    TrayService.init(this.context);
-
-    // On 2-in-1/PC, intercept the title-bar close button so we can ask the
-    // user (minimize / background / exit) instead of just quitting. For
-    // windowStageClose, returning TRUE keeps the window open (intercepts the
-    // close); FALSE lets it close. Wrapped in try/catch because this event is
-    // only available on desktop-class devices.
-    try {
-      stage.on('windowStageClose', (): boolean => {
-        try {
-          emitter.emit({ eventId: EVENT_CLOSE_REQUEST });
-        } catch (e) {
-          log.warn('emit close-request failed', e as Object);
-        }
-        return true;
-      });
-    } catch (e) {
-      log.warn('windowStageClose not supported', e as Object);
-    }
+    // No close interception: closing the window terminates this UIAbility, so
+    // the taskbar/dock entry disappears. While connected, the VPN extension is
+    // a separate windowless process that keeps running and owns the tray icon —
+    // that's the "close to tray, no taskbar" behaviour. Disconnected, there is
+    // nothing to keep, so the app simply exits.
   }
 }

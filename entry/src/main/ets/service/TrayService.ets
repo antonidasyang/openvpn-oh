@@ -98,12 +98,12 @@ class TrayServiceImpl {
         const mi: statusBarManager.StatusBarMenuItem = { title: p.displayName, subMenu: sub };
         return mi;
       });
-    // menuCode is set on BOTH the item (new API, since 6.1.1/API24) and the
-    // action (legacy, deprecated since API24) so the rightMenuClick event
-    // delivers the code regardless of device version.
+    // menuCode lives on StatusBarMenuAction (the field exists on this SDK, API
+    // 23 / 6.1.0). The newer StatusBarMenuItem.menuCode is only since API 24,
+    // so we can't set it here without breaking the build.
     const appGroup: statusBarManager.StatusBarMenuItem[] = [
-      { title: '打开主窗口', menuCode: 'open', menuAction: this.action('open') },
-      { title: '退出', menuCode: 'exit', menuAction: this.action('exit') },
+      { title: '打开主窗口', menuAction: this.action('open') },
+      { title: '退出', menuAction: this.action('exit') },
     ];
     const groups: statusBarManager.StatusBarGroupMenu[] = [];
     if (profileGroup.length > 0) groups.push(profileGroup);
@@ -112,7 +112,7 @@ class TrayServiceImpl {
   }
 
   private subItem(title: string, code: string): statusBarManager.StatusBarSubMenuItem {
-    return { subTitle: title, menuCode: code, menuAction: this.action(code) };
+    return { subTitle: title, menuAction: this.action(code) };
   }
 
   private action(code: string): statusBarManager.StatusBarMenuAction {

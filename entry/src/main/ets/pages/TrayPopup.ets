@@ -15,7 +15,7 @@ struct TrayPopup {
       moduleName: 'entry',
     };
     try {
-      const ctx = getContext(this) as common.UIExtensionContext;
+      const ctx = this.getUIContext().getHostContext() as common.UIExtensionContext;
       ctx.startAbility(want).catch((e: Object): void => {
         console.error('tray open failed', JSON.stringify(e));
       });

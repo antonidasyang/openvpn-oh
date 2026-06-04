@@ -21,12 +21,12 @@ class ProfileStoreImpl {
 
   async init(context: common.Context): Promise<void> {
     if (this.store) return;
-    this.store = await preferences.getPreferences(context, STORE_NAME);
-    const raw = await this.store.get(KEY_LIST, '[]') as string;
     try {
+      this.store = await preferences.getPreferences(context, STORE_NAME);
+      const raw = await this.store.get(KEY_LIST, '[]') as string;
       this.cache = JSON.parse(raw) as Profile[];
     } catch (e) {
-      log.error('failed to parse stored profiles, starting empty', e as Object);
+      log.error('init failed / bad stored profiles, starting empty', e as Object);
       this.cache = [];
     }
     this.loaded = true;
@@ -74,8 +74,14 @@ class ProfileStoreImpl {
 
   private async flush(): Promise<void> {
     if (!this.store) throw new Error('ProfileStore not initialized');
-    await this.store.put(KEY_LIST, JSON.stringify(this.cache));
-    await this.store.flush();
+    try {
+      await this.store.put(KEY_LIST, JSON.stringify(this.cache));
+      await this.store.flush();
+    } catch (e) {
+      // Rethrow so callers (upsert/delete) still surface a real save failure.
+      log.error('flush failed', e as Object);
+      throw e as Error;
+    }
   }
 
   private emit(): void {

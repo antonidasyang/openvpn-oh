@@ -1,4 +1,3 @@
-import { router } from '@kit.ArkUI';
 import { picker } from '@kit.CoreFileKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { util } from '@kit.ArkTS';
@@ -51,7 +50,7 @@ struct ImportConfig {
         .width(40).height(40)
         .backgroundColor(Color.Transparent)
         .fontColor($r('app.color.on_surface'))
-        .onClick((): void => { router.back(); })
+        .onClick((): void => { this.getUIContext().getRouter().back(); })
       Text($r('app.string.title_import'))
         .fontSize(18).fontWeight(FontWeight.Bold)
         .margin({ left: 8 })
@@ -145,7 +144,7 @@ struct ImportConfig {
         .layoutWeight(1)
         .backgroundColor($r('app.color.surface'))
         .fontColor($r('app.color.on_surface'))
-        .onClick((): void => { router.back(); })
+        .onClick((): void => { this.getUIContext().getRouter().back(); })
       Button($r('app.string.action_save'))
         .layoutWeight(1)
         .enabled(!!this.configText && !this.evalError && !this.saving)
@@ -169,7 +168,7 @@ struct ImportConfig {
       const buf = new ArrayBuffer(stat.size);
       fs.readSync(fd, buf);
       fs.closeSync(fd);
-      this.configText = new util.TextDecoder('utf-8').decodeWithStream(new Uint8Array(buf));
+      this.configText = util.TextDecoder.create('utf-8').decodeToString(new Uint8Array(buf));
       if (!this.displayName) {
         const path = uris[0];
         const slash = path.lastIndexOf('/');
@@ -227,7 +226,7 @@ struct ImportConfig {
         lastConnectedAt: 0,
       };
       await ProfileStore.upsert(profile);
-      router.back();
+      this.getUIContext().getRouter().back();
     } catch (e) {
       log.error('save failed', e as Object);
       this.evalError = (e as Error).message ?? String(e);

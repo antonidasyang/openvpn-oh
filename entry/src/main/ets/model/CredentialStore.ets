@@ -9,6 +9,10 @@ const STORE = 'ovpn_credentials';
 // app's private preferences (EL2, device-encrypted, app-sandboxed). HUKS
 // encryption was removed: it failed to round-trip on the target device, which
 // silently broke "remember password". The sandbox is private to this app.
+//
+// Every preferences call is wrapped in try/catch: a credential read/write that
+// fails should degrade gracefully (no saved password) rather than break the
+// connect flow or crash the app.
 
 interface StoredCred {
   username: string;
@@ -26,8 +30,11 @@ class CredentialStoreImpl {
   private store?: preferences.Preferences;
 
   async init(context: common.Context): Promise<void> {
-    if (!this.store) {
+    if (this.store) return;
+    try {
       this.store = await preferences.getPreferences(context, STORE);
+    } catch (e) {
+      log.error('init failed; credentials disabled', e as Object);
     }
   }
 
@@ -39,15 +46,19 @@ class CredentialStoreImpl {
       password: cachePassword ? password : '',
       cachePassword,
     };
-    await this.store.put(profileId, JSON.stringify(record));
-    await this.store.flush();
+    try {
+      await this.store.put(profileId, JSON.stringify(record));
+      await this.store.flush();
+    } catch (e) {
+      log.error('save failed', e as Object);
+    }
   }
 
   async load(profileId: string): Promise<LoadedCred | null> {
     if (!this.store) return null;
-    const raw = await this.store.get(profileId, '') as string;
-    if (!raw) return null;
     try {
+      const raw = await this.store.get(profileId, '') as string;
+      if (!raw) return null;
       const record = JSON.parse(raw) as StoredCred;
       const out: LoadedCred = {
         username: record.username ?? '',
@@ -63,27 +74,40 @@ class CredentialStoreImpl {
 
   async delete(profileId: string): Promise<void> {
     if (!this.store) return;
-    await this.store.delete(profileId);
-    await this.store.delete(profileId + '.pk');
-    await this.store.flush();
+    try {
+      await this.store.delete(profileId);
+      await this.store.delete(profileId + '.pk');
+      await this.store.flush();
+    } catch (e) {
+      log.error('delete failed', e as Object);
+    }
   }
 
   // ----- Private-key password (separate from auth creds) -----
 
   async saveKeyPassword(profileId: string, keyPassword: string): Promise<void> {
     if (!this.store) return;
-    if (!keyPassword) {
-      await this.store.delete(profileId + '.pk');
-    } else {
-      await this.store.put(profileId + '.pk', keyPassword);
+    try {
+      if (!keyPassword) {
+        await this.store.delete(profileId + '.pk');
+      } else {
+        await this.store.put(profileId + '.pk', keyPassword);
+      }
+      await this.store.flush();
+    } catch (e) {
+      log.error('saveKeyPassword failed', e as Object);
     }
-    await this.store.flush();
   }
 
   async loadKeyPassword(profileId: string): Promise<string> {
     if (!this.store) return '';
-    const v = await this.store.get(profileId + '.pk', '') as string;
-    return v;
+    try {
+      const v = await this.store.get(profileId + '.pk', '') as string;
+      return v;
+    } catch (e) {
+      log.error('loadKeyPassword failed', e as Object);
+      return '';
+    }
   }
 }
 

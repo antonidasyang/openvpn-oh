@@ -1,4 +1,3 @@
-import { router } from '@kit.ArkUI';
 import mediaquery from '@ohos.mediaquery';
 
 import { ProfileStore } from '../model/ProfileStore';
@@ -33,7 +32,7 @@ struct Index {
     this.unsubscribe = ProfileStore.subscribe((list: Profile[]): void => {
       this.profiles = list;
     });
-    this.mqListener = mediaquery.matchMediaSync('(min-width: 640vp)');
+    this.mqListener = this.getUIContext().getMediaQuery().matchMediaSync('(min-width: 640vp)');
     this.mqListener.on('change', (r: mediaquery.MediaQueryResult): void => {
       this.isWide = r.matches;
     });
@@ -96,12 +95,12 @@ struct Index {
         .height(36).margin({ right: 8 })
         .backgroundColor($r('app.color.surface_dim'))
         .fontColor($r('app.color.on_surface'))
-        .onClick((): void => { router.pushUrl({ url: 'pages/LogView' }); })
+        .onClick((): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/LogView' }); })
       Button('+ New')
         .height(36)
         .backgroundColor($r('app.color.brand_primary'))
         .fontColor($r('app.color.brand_on_primary'))
-        .onClick((): void => { router.pushUrl({ url: 'pages/ImportConfig' }); })
+        .onClick((): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/ImportConfig' }); })
     }
     .padding({ left: 16, right: 16, top: 16, bottom: 8 })
     .width('100%')
@@ -255,7 +254,11 @@ struct Index {
       }
     } else {
       const params: IndexRouteParams = { profileId: p.id };
-      router.pushUrl({ url: 'pages/ProfileDetail', params });
+      try {
+        this.getUIContext().getRouter().pushUrl({ url: 'pages/ProfileDetail', params });
+      } catch (e) {
+        console.error('pushUrl ProfileDetail failed', JSON.stringify(e));
+      }
     }
   }
 
@@ -296,7 +299,7 @@ struct Index {
   }
 
   private confirmDelete(p: Profile): void {
-    AlertDialog.show({
+    this.getUIContext().showAlertDialog({
       title: p.displayName,
       message: 'Delete this profile?',
       primaryButton: {

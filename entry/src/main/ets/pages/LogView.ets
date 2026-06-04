@@ -1,4 +1,3 @@
-import { router } from '@kit.ArkUI';
 import { VpnState, VpnStateData } from '../model/VpnState';
 
 @Entry
@@ -47,7 +46,7 @@ struct LogView {
         .width(40).height(40)
         .backgroundColor(Color.Transparent)
         .fontColor($r('app.color.on_surface'))
-        .onClick((): void => { router.back(); })
+        .onClick((): void => { this.getUIContext().getRouter().back(); })
       Text($r('app.string.title_logs'))
         .fontSize(18).fontWeight(FontWeight.Bold)
         .margin({ left: 8 })

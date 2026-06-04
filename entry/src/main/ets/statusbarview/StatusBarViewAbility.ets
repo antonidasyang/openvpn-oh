@@ -5,6 +5,10 @@ import { UIExtensionContentSession, Want } from '@kit.AbilityKit';
 // (owned by the UI process, see TrayService) is the main control surface.
 export default class StatusBarViewAbility extends StatusBarViewExtensionAbility {
   onSessionCreate(want: Want, session: UIExtensionContentSession): void {
-    session.loadContent('pages/TrayPopup');
+    try {
+      session.loadContent('pages/TrayPopup');
+    } catch (e) {
+      console.error('TrayPopup loadContent failed', JSON.stringify(e));
+    }
   }
 }

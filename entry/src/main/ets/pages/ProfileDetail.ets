@@ -1,5 +1,3 @@
-import { router } from '@kit.ArkUI';
-
 import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore, LoadedCred } from '../model/CredentialStore';
 import { VpnController } from '../service/VpnController';
@@ -24,6 +22,7 @@ struct ProfileDetail {
   @Local private state: VpnStateData = VpnState;
 
   async aboutToAppear(): Promise<void> {
+    const router = this.getUIContext().getRouter();
     const params = router.getParams() as ProfileRouteParams | undefined;
     const id = params?.profileId;
     if (!id) {
@@ -82,7 +81,7 @@ struct ProfileDetail {
         .width(40).height(40)
         .backgroundColor(Color.Transparent)
         .fontColor($r('app.color.on_surface'))
-        .onClick((): void => { router.back(); })
+        .onClick((): void => { this.getUIContext().getRouter().back(); })
       Text(this.profile?.displayName ?? '')
         .fontSize(18).fontWeight(FontWeight.Bold)
         .margin({ left: 8 })
@@ -236,7 +235,7 @@ struct ProfileDetail {
     .backgroundColor($r('app.color.surface'))
     .borderRadius(16)
     .width('100%')
-    .onClick((): void => { router.pushUrl({ url: 'pages/LogView' }); })
+    .onClick((): void => { this.getUIContext().getRouter().pushUrl({ url: 'pages/LogView' }); })
   }
 
   // Show the private-key-password field when static detection flagged it, or

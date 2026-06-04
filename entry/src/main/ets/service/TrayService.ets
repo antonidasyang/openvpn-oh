@@ -40,8 +40,10 @@ class TrayServiceImpl {
     // run whose exit never destroyed the process). Without this, addToStatusBar
     // can stack a second icon — each with its own menu, hence "two 退出".
     try {
-      statusBarManager.removeFromStatusBar(ctx);
-      log.info('removeFromStatusBar (clear stale) OK');
+      if (canIUse('SystemCapability.PCService.StatusBarManager')) {
+        statusBarManager.removeFromStatusBar(ctx);
+        log.info('removeFromStatusBar (clear stale) OK');
+      }
     } catch (e) {
       log.info('removeFromStatusBar (clear stale) skipped', JSON.stringify(e));
     }
@@ -58,7 +60,9 @@ class TrayServiceImpl {
         statusBarGroupMenu: this.buildMenu(),
         hoverTips: 'D2SVPN',
       };
-      statusBarManager.addToStatusBar(ctx, item);
+      if (canIUse('SystemCapability.PCService.StatusBarManager')) {
+        statusBarManager.addToStatusBar(ctx, item);
+      }
       this.installed = true;
       this.lastSig = this.menuSig();   // menu already set by addToStatusBar
       log.info('addToStatusBar OK (UI process)');
@@ -78,10 +82,15 @@ class TrayServiceImpl {
   }
 
   private async pixmap(ctx: common.UIAbilityContext, name: string): Promise<image.PixelMap> {
-    const raw: Uint8Array = ctx.resourceManager.getRawFileContentSync(name);
-    const ab: ArrayBuffer = raw.buffer.slice(0) as ArrayBuffer;
-    const src = image.createImageSource(ab);
-    return await src.createPixelMap();
+    try {
+      const raw: Uint8Array = ctx.resourceManager.getRawFileContentSync(name);
+      const ab: ArrayBuffer = raw.buffer.slice(0) as ArrayBuffer;
+      const src = image.createImageSource(ab);
+      return await src.createPixelMap();
+    } catch (e) {
+      log.error('pixmap load failed', e as Object);
+      throw e as Error;
+    }
   }
 
   private connectedFor(id: string): boolean {
@@ -136,7 +145,9 @@ class TrayServiceImpl {
     if (sig === this.lastSig) return;
     this.lastSig = sig;
     try {
-      statusBarManager.updateStatusBarMenu(this.ctx, this.buildMenu());
+      if (canIUse('SystemCapability.PCService.StatusBarManager')) {
+        statusBarManager.updateStatusBarMenu(this.ctx, this.buildMenu());
+      }
     } catch (e) {
       log.warn('updateStatusBarMenu failed', e as Object);
     }
@@ -144,11 +155,16 @@ class TrayServiceImpl {
 
   remove(): void {
     if (!this.ctx || !this.installed) return;
-    try { statusBarManager.removeFromStatusBar(this.ctx); } catch (e) { /* ignore */ }
+    try {
+      if (canIUse('SystemCapability.PCService.StatusBarManager')) {
+        statusBarManager.removeFromStatusBar(this.ctx);
+      }
+    } catch (e) { /* ignore */ }
     this.installed = false;
   }
 
   private registerEvents(): void {
+    if (!canIUse('SystemCapability.PCService.StatusBarManager')) return;
     try {
       statusBarManager.on('rightMenuClick', (ev: emitter.EventData): void => {
         const code = this.codeOf(ev);

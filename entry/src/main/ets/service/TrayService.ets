@@ -27,6 +27,7 @@ class TrayServiceImpl {
   private activeId: string = '';
   private subscriber?: commonEventManager.CommonEventSubscriber;
   private unsubProfiles?: () => void;
+  private lastSig: string = '';
 
   async init(ctx: common.UIAbilityContext): Promise<void> {
     if (this.installed) return;
@@ -50,6 +51,7 @@ class TrayServiceImpl {
       };
       statusBarManager.addToStatusBar(ctx, item);
       this.installed = true;
+      this.lastSig = this.menuSig();   // menu already set by addToStatusBar
       log.info('addToStatusBar OK (UI process)');
     } catch (e) {
       log.error('addToStatusBar FAILED (UI process)', JSON.stringify(e));
@@ -105,8 +107,21 @@ class TrayServiceImpl {
     return { abilityName: 'EntryAbility', moduleName: 'entry', notifyOnly: true, menuCode: code };
   }
 
+  // A compact signature of everything the menu depends on, so we only call
+  // updateStatusBarMenu when it actually changes (the API is rate-limited:
+  // error 1010710003 'called too frequently').
+  private menuSig(): string {
+    const profiles = ProfileStore.list();
+    const parts = profiles.map((p: Profile): string =>
+      `${p.id}:${p.displayName}:${this.connectedFor(p.id) ? 1 : 0}`);
+    return parts.join('|') + '#' + this.activeId;
+  }
+
   refresh(): void {
     if (!this.ctx || !this.installed) return;
+    const sig = this.menuSig();
+    if (sig === this.lastSig) return;
+    this.lastSig = sig;
     try {
       statusBarManager.updateStatusBarMenu(this.ctx, this.buildMenu());
     } catch (e) {

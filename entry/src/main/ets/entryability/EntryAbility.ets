@@ -6,6 +6,7 @@ import { logger } from '../util/Logger';
 import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore } from '../model/CredentialStore';
 import { VpnController } from '../service/VpnController';
+import { TrayService } from '../service/TrayService';
 
 const log = logger('EntryAbility');
 
@@ -49,10 +50,27 @@ export default class EntryAbility extends UIAbility {
     await stage.loadContent('pages/Index', (err) => {
       if (err) log.error('loadContent failed', err);
     });
-    // No close interception: closing the window terminates this UIAbility, so
-    // the taskbar/dock entry disappears. While connected, the VPN extension is
-    // a separate windowless process that keeps running and owns the tray icon —
-    // that's the "close to tray, no taskbar" behaviour. Disconnected, there is
-    // nothing to keep, so the app simply exits.
+
+    // Tray icon + right-click menu, owned by this (always-alive) UI process.
+    TrayService.init(this.context);
+
+    // Close button -> minimize instead of quitting, so the app process (and
+    // therefore the VPN tunnel) keeps running. Returning true intercepts the
+    // close. Full quit is available from the tray's 退出 menu item. (A
+    // third-party app can't drop the taskbar entry while staying alive —
+    // window.hide() is a system API and a windowless process can't hold the
+    // tray; so taskbar + tray coexist.)
+    try {
+      stage.on('windowStageClose', (): boolean => {
+        try {
+          stage.getMainWindowSync().minimize();
+        } catch (e) {
+          log.warn('minimize on close failed', e as Object);
+        }
+        return true;
+      });
+    } catch (e) {
+      log.warn('windowStageClose not supported', e as Object);
+    }
   }
 }

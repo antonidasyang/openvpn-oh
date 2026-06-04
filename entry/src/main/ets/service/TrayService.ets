@@ -107,13 +107,15 @@ class TrayServiceImpl {
         const mi: statusBarManager.StatusBarMenuItem = { title: p.displayName, subMenu: sub };
         return mi;
       });
-    // NOTE: no 退出 here on purpose. The system attaches its own default tray
-    // menu (app icon + 退出) to every status-bar icon, and that OS-level 退出
-    // properly destroys the process. Adding our own 退出 produced a visible
-    // duplicate ("two 退出"). menuCode lives on StatusBarMenuAction (the field
-    // exists on API 23 / 6.1.0; StatusBarMenuItem.menuCode is only since API24).
+    // Our own 退出 — the ONLY reliable exit we control: it runs exitApp()
+    // (stop tunnel + killAllProcesses) so every process dies. The earlier
+    // "two 退出" was the dead button in the left-click TrayPopup (now removed),
+    // not a system menu — so this is the single exit entry. menuCode lives on
+    // StatusBarMenuAction (the field exists on API 23 / 6.1.0;
+    // StatusBarMenuItem.menuCode is only since API 24).
     const appGroup: statusBarManager.StatusBarMenuItem[] = [
       { title: '打开主窗口', menuAction: this.action('open') },
+      { title: '退出', menuAction: this.action('exit') },
     ];
     const groups: statusBarManager.StatusBarGroupMenu[] = [];
     if (profileGroup.length > 0) groups.push(profileGroup);

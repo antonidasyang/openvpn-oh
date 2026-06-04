@@ -43,7 +43,18 @@ export default class EntryAbility extends UIAbility {
   }
 
   async onDestroy(): Promise<void> {
-    await VpnController.dispose();
+    // The app exits via the system tray's 退出 (which terminates this UIAbility).
+    // But the VPN extension and statusBarView extension run as separate
+    // processes that outlive the UIAbility — leaving the app "running" (DevEco's
+    // red square stays lit, tray icon lingers). Tear the tunnel down and kill
+    // every process of the app so exit is clean.
+    try { await VpnController.stop(); } catch (e) { log.warn('stop on destroy failed', e as Object); }
+    try { await VpnController.dispose(); } catch (e) { /* ignore */ }
+    try {
+      await this.context.getApplicationContext().killAllProcesses();
+    } catch (e) {
+      log.warn('killAllProcesses on destroy failed', e as Object);
+    }
   }
 
   async onWindowStageCreate(stage: window.WindowStage): Promise<void> {

@@ -9,7 +9,7 @@ import { Profile } from '../model/Profile';
 import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore } from '../model/CredentialStore';
 import { VpnController } from './VpnController';
-import { EV_STATE_CHANGED, StateChangedPayload } from './CommonEvents';
+import { EV_STATE_CHANGED, StateChangedPayload, EV_TRAY_OPEN, EV_TRAY_EXIT } from './CommonEvents';
 import { logger } from '../util/Logger';
 
 const log = logger('TrayService');
@@ -170,11 +170,15 @@ class TrayServiceImpl {
   }
 
   private async subscribeState(): Promise<void> {
-    const info: commonEventManager.CommonEventSubscribeInfo = { events: [EV_STATE_CHANGED] };
+    const info: commonEventManager.CommonEventSubscribeInfo = {
+      events: [EV_STATE_CHANGED, EV_TRAY_OPEN, EV_TRAY_EXIT],
+    };
     this.subscriber = await commonEventManager.createSubscriber(info);
     commonEventManager.subscribe(this.subscriber,
       (err: BusinessError, data: commonEventManager.CommonEventData): void => {
         if (err) return;
+        if (data.event === EV_TRAY_OPEN) { this.openWindow(); return; }
+        if (data.event === EV_TRAY_EXIT) { this.exitApp(); return; }
         try {
           const p = JSON.parse(data.data ?? '{}') as StateChangedPayload;
           this.phase = p.phase;

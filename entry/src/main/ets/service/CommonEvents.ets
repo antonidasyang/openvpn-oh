@@ -12,6 +12,12 @@ export const EV_COMMAND_CREDS   = 'com.ovpn.harmony.cmd.creds';
 // In-process (UI) emitter event id: ability -> page request to confirm close.
 export const EVENT_CLOSE_REQUEST = 1001;
 
+// Tray left-click popup -> UI process: open the main window / quit the app.
+// (The popup runs in a separate UIExtension process, so it talks back via
+// CommonEvents rather than a direct call.)
+export const EV_TRAY_OPEN = 'com.ovpn.harmony.tray.open';
+export const EV_TRAY_EXIT = 'com.ovpn.harmony.tray.exit';
+
 export const EV_STATE_CHANGED   = 'com.ovpn.harmony.evt.state';
 export const EV_LOG_LINE        = 'com.ovpn.harmony.evt.log';
 export const EV_STATS_UPDATE    = 'com.ovpn.harmony.evt.stats';

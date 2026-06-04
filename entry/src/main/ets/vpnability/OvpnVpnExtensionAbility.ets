@@ -320,9 +320,15 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
       if (!this.engine) return;
       try {
         const s = this.engine.getStats();
+        // We use an external tun-builder, so the OS owns the tun fd and
+        // openvpn3's own tun (interface) byte counters stay 0. The transport
+        // (link) counters are what actually move — report those for 已发送/已接收,
+        // falling back to tun if a build ever counts there.
+        const tunIn = Number(s.tun.bytesIn);
+        const tunOut = Number(s.tun.bytesOut);
         const payload: StatsPayload = {
-          bytesIn:    Number(s.tun.bytesIn),
-          bytesOut:   Number(s.tun.bytesOut),
+          bytesIn:    Number(s.transport.bytesIn) || tunIn,
+          bytesOut:   Number(s.transport.bytesOut) || tunOut,
           packetsIn:  Number(s.tun.packetsIn),
           packetsOut: Number(s.tun.packetsOut),
         };

@@ -1,96 +1,60 @@
-# Tray icon vs. taskbar entry — what's achievable for a third-party app
+# Tray icon + off-taskbar resident — how it's actually done on HarmonyOS PC
 
 ## Goal
 "Close the window so the app disappears from the PC taskbar/dock but keeps a
-persistent system-tray icon" (the WPS behaviour).
+persistent system-tray icon and stays alive" (the WPS behaviour).
 
-## What we implemented
-- System-tray icon + right-click menu via `@hms.pcService.statusBarManager`
-  (StatusBar / Desktop Extension Kit). Menu: every profile with
-  连接 / 断开 / 重连, plus 打开主窗口 / 退出. Works.
-- Close button → dialog 最小化 / 退出. Minimize keeps the process + tray alive.
+## TL;DR — it IS possible for a normal third-party app
+An earlier version of this doc concluded this was impossible without
+system/preinstall privilege. **That was wrong.** HarmonyOS provides a supported
+pattern for exactly this — see the official guide
+"PC 应用通过系统托盘后台保活"
+(developer.huawei.com architecture-guides/pc_status_bar). We now implement it.
 
-## Why "no taskbar, only tray" is NOT possible for us (evidence)
-The tray icon only lives as long as a process of the app is alive. Our only
-process that can stay alive is the windowed UIAbility, and a UIAbility window
-always has a dock/mission entry. Removing that entry while staying alive needs
-one of two things, both gated to system / privileged apps:
+## How we implement it
+- **Tray icon + right-click menu** via `@hms.pcService.statusBarManager`
+  (`addToStatusBar`). Menu: each profile with 连接 / 断开 / 重连, plus 打开主窗口.
+  No custom 退出 — the system attaches its own 退出 to every tray icon.
+- **Keepalive process**: `TrayService.holdStatusBar()` starts a hidden
+  `BackGroundAbility` (UIAbility) with
+  `StartOptions.processMode = contextConstant.ProcessMode.NEW_PROCESS_ATTACH_TO_STATUS_BAR_ITEM`
+  and `startupVisibility = contextConstant.StartupVisibility.STARTUP_HIDE`.
+  This is a **new process bound to the tray icon** that keeps the app alive in
+  the background (PC otherwise forbids arbitrary background running).
+- **Close → off the taskbar, still alive**: `EntryAbility.onPrepareToTerminate()`
+  calls `this.context.hideAbility()` and returns `true`. The window is hidden
+  (dropping the taskbar/dock entry); the app stays resident via the tray-attached
+  process. Requires permission `ohos.permission.PREPARE_APP_TERMINATE`.
+- **Restore**: left-click the tray icon → `statusBarIconClick` event →
+  `context.showAbility()` brings the window back (also the 打开主窗口 menu item).
+- **Clean exit**: the system tray / Dock 退出 terminates `BackGroundAbility`; in
+  its `onPrepareToTerminate()` it publishes `EV_BG_TERMINATE`; `EntryAbility`
+  receives it, removes the tray icon and calls `terminateSelf()` (with
+  `killAllProcesses()` as a backstop). This is what makes the whole app — UI,
+  VPN extension, keepalive process — exit together (no lingering process / no
+  stuck DevEco "running" indicator).
 
-1. `window.Window.hide()` — hides the main window (removes the dock entry)
-   while keeping the ability alive. **This is a `@systemapi`** (system
-   applications only); a normal third-party app cannot call it.
-2. A windowless background service (`ServiceExtensionAbility`) that owns the
-   tray and outlives the window. **Residence / auto-start for
-   ServiceExtensionAbility is a device-manufacturer privilege**, not available
-   to ordinary third-party apps; declaring it can even fail installation
-   ("install parse profile prop check error").
-3. The `module.json5` ability attribute `excludeFromMissions` (whether the
-   UIAbility shows in Recents/taskbar). Official doc: *"Configurations of
-   third-party applications do not take effect; the current configurations are
-   only valid for system applications."* So setting it has no effect for us.
+## Key APIs (and the earlier mistake)
+- `context.hideAbility()` / `context.showAbility()` — **UIAbilityContext methods
+  available to third-party apps**. The earlier doc wrongly cited `window.hide()`
+  (which *is* `@systemapi`) and concluded it was impossible. `hideAbility()` is
+  the right, non-system API.
+- `NEW_PROCESS_ATTACH_TO_STATUS_BAR_ITEM` — the supported way to hold a resident
+  background process tied to the tray, without a privileged
+  `ServiceExtensionAbility` and without a long-time task (which extensions can't
+  start anyway — that 401 was real but irrelevant to this approach).
+- `onPrepareToTerminate()` (needs `ohos.permission.PREPARE_APP_TERMINATE`) — the
+  correct close hook. Returning true + `hideAbility()` keeps the app resident;
+  the cross-ability `EV_BG_TERMINATE` event distinguishes a real exit.
 
-We also tried keeping a windowless process alive ourselves: starting a
-long-time task (`backgroundTaskManager.startBackgroundRunning`) from the VPN
-extension fails with **401 "Get ability context failed"** — extensions cannot
-start a continuous task; only a UIAbility can, and that brings back the window /
-taskbar entry. So a "resident tray-only process" cannot be built either.
-
-WPS Office ships preinstalled / as a Huawei partner app, so it has these
-privileges. A side-loaded third-party app (our case) does not.
-
-### Two-process / windowless-tray designs don't escape this
-- "One resident tray process + one window process": the resident tray process
-  must be windowless **and** stay alive — i.e. a `ServiceExtensionAbility`
-  (privileged) or a long-time task (extensions get 401). Neither is available.
-- "No window at all, tray-only app": same wall — a tray needs a live process; a
-  live UIAbility always registers a taskbar/mission entry that we can't hide;
-  `terminateSelf()` kills the process and the tray with it.
-
-## Does a "formal"/release signature unlock it? No.
-There are three signing tiers, and only the third one matters here:
-
-| Tier | How you get it | Can call `@systemapi` / use `excludeFromMissions`? |
-|------|----------------|---------------------------------------------------|
-| Auto-sign | DevEco local one-click | ❌ |
-| Release / publish signature | Apply for `.cer`/`.p7b` in AGC to ship on AppGallery | ❌ — still a normal third-party app |
-| System / privileged signature | Huawei preinstall list + OEM private key | ✅ (this is what WPS has) |
-
-A release (publish) signature only solves *distribution* — it does **not** raise
-the app's privilege level (APL). `@systemapi` and the "system-applications-only"
-config attributes require `system_basic`/`system_core` APL, which a published
-app does not get. The ACL ("restricted permission") channel in AGC can grant
-specific *restricted permissions* (e.g. photo-album access) but **cannot** turn
-a `normal` app into a system application or open `@systemapi`. Dropping the
-taskbar entry is an app-*identity* gate (system app or not), not a grantable
-permission — so the AGC publish flow can never provide it.
-
-Only two routes give true "tray-only, no taskbar":
-1. Get into Huawei's preinstall / privileged-app program (partner/business
-   deal) — what WPS did; not available to ordinary developers.
-2. Own the system signing key yourself (OpenHarmony custom ROM / device-maker
-   identity).
+## Constraints
+- API 17+ / HarmonyOS 5.0.5 Release SDK+ / DevEco 6.0.0+. Our target device is
+  6.1.0, so supported.
+- PC / 2-in-1 only (`SystemCapability.PCService.StatusBarManager`); on phone the
+  tray is simply skipped (guarded by `canIUse`).
 
 ### Sources
-- @ohos.window `hide()` is documented as a system interface (systemapi):
-  https://blog.csdn.net/2401_84194030/article/details/139298785
-- ServiceExtensionAbility residence/auto-start is a manufacturer privilege:
-  https://blog.csdn.net/lee1054908698/article/details/142104026
-- HarmonyOS background-task rules (continuous task needs a foreground
-  notification): https://harmonyosdev.csdn.net/69a2bc220a2f6a37c5942eb8.html
-- `module.json5` `excludeFromMissions` is "only valid for system applications":
-  https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/module-configuration-file
-- Release/publish signing requires applying for `.cer`/`.p7b` in AGC (a
-  distribution step, not a privilege upgrade):
-  https://dev.to/simple_lau_1997/how-to-publish-a-harmonyos-application-21gp
-- HarmonyOS permission/APL & ACL model (ACL grants restricted permissions, not
-  system-app status):
-  https://dev.to/liu_yang_fc0e605820ac220c/a-deep-guide-to-harmonyos-next-permission-management-15k4
-
-## Practical outcome
-- Achievable today: **taskbar entry + tray icon coexist** (minimize keeps
-  both; click either to use the app). The tray's right-click menu is the
-  background control surface.
-- To get true "tray-only, no taskbar": the app must be granted system /
-  preinstall privilege (e.g. an OEM/Huawei partnership or a system signature),
-  then switch the close action to `window.hide()` and/or move tray ownership
-  into a resident `ServiceExtensionAbility`.
+- PC 应用通过系统托盘后台保活 (official architecture guide):
+  https://developer.huawei.com/consumer/cn/doc/architecture-guides/pc_status_bar-0000002551100435
+- statusBarManager.addToStatusBar / onPrepareToTerminate / startAbility — see the
+  links in that guide's 参考文档 section.

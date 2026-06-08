@@ -1,7 +1,6 @@
 import statusBarManager from '@hms.pcService.statusBarManager';
 import image from '@ohos.multimedia.image';
-import { common } from '@kit.AbilityKit';
-import { window } from '@kit.ArkUI';
+import { common, Want, StartOptions, contextConstant } from '@kit.AbilityKit';
 import { emitter } from '@kit.BasicServicesKit';
 import commonEventManager from '@ohos.commonEventManager';
 import { BusinessError } from '@ohos.base';
@@ -15,10 +14,12 @@ import { logger } from '../util/Logger';
 const log = logger('TrayService');
 
 // System-tray (status bar) integration for HarmonyOS PC / 2-in-1 via
-// @hms.pcService.statusBarManager. Provides the persistent tray icon plus a
-// right-click menu: every profile with connect / disconnect / reconnect, and
-// open-window / exit. Menu clicks are identified by menuCode through the
-// 'rightMenuClick' event (StatusBarMenuAction has no parameters field).
+// @hms.pcService.statusBarManager. Provides the persistent tray icon, a
+// right-click menu (per profile: connect / disconnect / reconnect, plus
+// 打开主窗口), left-click -> showAbility, and the tray-attached keepalive process
+// (holdStatusBar). Right-click menu clicks are identified by menuCode through
+// the 'rightMenuClick' event. There is no custom 退出 — the system attaches its
+// own 退出 to the tray icon, whose termination is handled via BackGroundAbility.
 class TrayServiceImpl {
   private ctx?: common.UIAbilityContext;
   private icon?: statusBarManager.StatusBarIcon;
@@ -52,9 +53,12 @@ class TrayServiceImpl {
       const item: statusBarManager.StatusBarItem = {
         icons: this.icon,
         quickOperation: {
+          // Empty abilityName => left-click shows no popup; we handle it via the
+          // 'statusBarIconClick' event and call showAbility() to surface the
+          // main window (per the HarmonyOS PC tray keepalive guide).
           title: 'D2SVPN',
-          height: 160,
-          abilityName: 'StatusBarViewAbility',
+          height: 30,
+          abilityName: '',
           moduleName: 'entry',
         },
         statusBarGroupMenu: this.buildMenu(),
@@ -73,6 +77,29 @@ class TrayServiceImpl {
     this.registerEvents();
     this.unsubProfiles = ProfileStore.subscribe((): void => { this.refresh(); });
     await this.subscribeState();
+    // Start the tray-attached keepalive process so the app survives in the
+    // background (and off the taskbar) after the main window is hidden.
+    this.holdStatusBar();
+  }
+
+  // Launch BackGroundAbility in a NEW process bound to the status-bar icon, kept
+  // hidden. This is what keeps the app alive on PC once EntryAbility hides its
+  // window (HarmonyOS forbids arbitrary background running otherwise).
+  private holdStatusBar(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const want: Want = {
+      bundleName: ctx.abilityInfo.bundleName,
+      abilityName: 'BackGroundAbility',
+      moduleName: 'entry',
+    };
+    const options: StartOptions = {
+      processMode: contextConstant.ProcessMode.NEW_PROCESS_ATTACH_TO_STATUS_BAR_ITEM,
+      startupVisibility: contextConstant.StartupVisibility.STARTUP_HIDE,
+    };
+    ctx.startAbility(want, options)
+      .then((): void => { log.info('holdStatusBar: keepalive process started'); })
+      .catch((e: Object): void => { log.error('holdStatusBar failed', JSON.stringify(e)); });
   }
 
   private async loadIcon(ctx: common.UIAbilityContext): Promise<statusBarManager.StatusBarIcon> {
@@ -107,15 +134,13 @@ class TrayServiceImpl {
         const mi: statusBarManager.StatusBarMenuItem = { title: p.displayName, subMenu: sub };
         return mi;
       });
-    // Our own 退出 — the ONLY reliable exit we control: it runs exitApp()
-    // (stop tunnel + killAllProcesses) so every process dies. The earlier
-    // "two 退出" was the dead button in the left-click TrayPopup (now removed),
-    // not a system menu — so this is the single exit entry. menuCode lives on
-    // StatusBarMenuAction (the field exists on API 23 / 6.1.0;
-    // StatusBarMenuItem.menuCode is only since API 24).
+    // NOTE: no 退出 here on purpose. The system attaches its own default tray
+    // menu (app icon + 退出) to every status-bar icon, and that OS-level 退出
+    // properly destroys the process. Adding our own 退出 produced a visible
+    // duplicate ("two 退出"). menuCode lives on StatusBarMenuAction (the field
+    // exists on API 23 / 6.1.0; StatusBarMenuItem.menuCode is only since API24).
     const appGroup: statusBarManager.StatusBarMenuItem[] = [
       { title: '打开主窗口', menuAction: this.action('open') },
-      { title: '退出', menuAction: this.action('exit') },
     ];
     const groups: statusBarManager.StatusBarGroupMenu[] = [];
     if (profileGroup.length > 0) groups.push(profileGroup);
@@ -173,9 +198,15 @@ class TrayServiceImpl {
           log.info('rightMenuClick', `${code} raw=${JSON.stringify(ev)}`);
           if (code) this.dispatch(code);
         });
+        // Left-click the tray icon -> bring the main window back to front.
+        statusBarManager.on('statusBarIconClick', (ev: emitter.EventData): void => {
+          const d = ev.data as Record<string, Object> | undefined;
+          const kind = d ? d['iconClickType'] : undefined;
+          if (kind === 'leftClick') this.openWindow();
+        });
       }
     } catch (e) {
-      log.warn('on(rightMenuClick) failed', e as Object);
+      log.warn('on(statusBar click) failed', e as Object);
     }
   }
 
@@ -193,7 +224,6 @@ class TrayServiceImpl {
 
   private dispatch(code: string): void {
     if (code === 'open') { this.openWindow(); return; }
-    if (code === 'exit') { this.exitApp(); return; }
     const sep = code.indexOf('|');
     if (sep < 0) return;
     const verb = code.substring(0, sep);
@@ -209,31 +239,14 @@ class TrayServiceImpl {
     await VpnController.connect(p, kp);
   }
 
+  // Bring the (hidden) main window back to the foreground. showAbility() is the
+  // counterpart to EntryAbility's hideAbility() in onPrepareToTerminate.
   private openWindow(): void {
-    if (!this.ctx) return;
-    window.getLastWindow(this.ctx)
-      .then((w: window.Window): Promise<void> => w.showWindow())
-      .catch((e: Object): void => log.warn('showWindow failed', e as Object));
-  }
-
-  private async exitApp(): Promise<void> {
-    // Tear down the tunnel (and the VPN extension) first, then kill every
-    // process of the app. terminateSelf() only ends the UIAbility, leaving the
-    // VPN / statusBarView extension processes alive — which is why DevEco kept
-    // showing the app as running after "退出". killAllProcesses() takes the
-    // whole app down.
-    log.info('exitApp invoked');
-    try { await VpnController.stop(); } catch (e) { log.warn('stop in exit failed', e as Object); }
-    this.remove();
     const ctx = this.ctx;
-    if (!ctx) { log.warn('exitApp: no ctx'); return; }
-    try {
-      await ctx.getApplicationContext().killAllProcesses();
-      log.info('killAllProcesses OK');
-    } catch (e) {
-      log.warn('killAllProcesses failed; falling back to terminateSelf', e as Object);
-      try { await ctx.terminateSelf(); } catch (_e) { /* ignore */ }
-    }
+    if (!ctx) return;
+    ctx.showAbility()
+      .then((): void => { log.info('showAbility OK'); })
+      .catch((e: Object): void => { log.warn('showAbility failed', e as Object); });
   }
 
   private async subscribeState(): Promise<void> {

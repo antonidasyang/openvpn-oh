@@ -4,6 +4,6 @@
     "pages/ImportConfig",
     "pages/ProfileDetail",
     "pages/LogView",
-    "pages/TrayPopup"
+    "pages/Blank"
   ]
 }

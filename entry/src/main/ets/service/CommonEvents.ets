@@ -9,14 +9,11 @@ export const EV_COMMAND_PAUSE   = 'com.ovpn.harmony.cmd.pause';
 export const EV_COMMAND_RESUME  = 'com.ovpn.harmony.cmd.resume';
 export const EV_COMMAND_CREDS   = 'com.ovpn.harmony.cmd.creds';
 
-// In-process (UI) emitter event id: ability -> page request to confirm close.
-export const EVENT_CLOSE_REQUEST = 1001;
-
-// Tray left-click popup -> UI process: open the main window / quit the app.
-// (The popup runs in a separate UIExtension process, so it talks back via
-// CommonEvents rather than a direct call.)
-export const EV_TRAY_OPEN = 'com.ovpn.harmony.tray.open';
-export const EV_TRAY_EXIT = 'com.ovpn.harmony.tray.exit';
+// BackGroundAbility (the tray-attached keepalive process) -> EntryAbility:
+// "I'm being terminated (user picked the system tray/Dock 退出)", so EntryAbility
+// removes the tray icon and calls terminateSelf() for a clean full exit. See the
+// HarmonyOS "PC 应用通过系统托盘后台保活" guide.
+export const EV_BG_TERMINATE = 'com.ovpn.harmony.bg.terminate';
 
 export const EV_STATE_CHANGED   = 'com.ovpn.harmony.evt.state';
 export const EV_LOG_LINE        = 'com.ovpn.harmony.evt.log';

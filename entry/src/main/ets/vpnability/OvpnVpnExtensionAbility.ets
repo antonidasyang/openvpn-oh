@@ -229,12 +229,12 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
     if (cfg.rerouteIpv6 && !hasV6Default) routes.push(mkRoute('::', 0, true));
 
     const dnsAddresses: string[] = cfg.dns.map((d: OvpnTunDns): string => d.address);
-    const hasV4 = cfg.rerouteIpv4 || cfg.addresses.some((a: OvpnTunAddress): boolean => !a.ipv6);
-    const hasV6 = cfg.rerouteIpv6 || cfg.addresses.some((a: OvpnTunAddress): boolean => a.ipv6);
+    const hasV4: boolean = cfg.rerouteIpv4 || cfg.addresses.some((a: OvpnTunAddress): boolean => !a.ipv6);
+    const hasV6: boolean = cfg.rerouteIpv6 || cfg.addresses.some((a: OvpnTunAddress): boolean => a.ipv6);
 
     // Diagnostic: what did the server actually push?
-    const addrSummary = cfg.addresses.map((a: OvpnTunAddress): string => `${a.address}/${a.prefix}`).join(',');
-    const routeSummary = routes.map((r: vpnExtension.RouteInfo): string =>
+    const addrSummary: string = cfg.addresses.map((a: OvpnTunAddress): string => `${a.address}/${a.prefix}`).join(',');
+    const routeSummary: string = routes.map((r: vpnExtension.RouteInfo): string =>
       `${r.destination.address.address}/${r.destination.prefixLength}`).join(',');
     log.info('establishTun',
       `addrs=[${addrSummary}] routes=[${routeSummary}] reroute4=${cfg.rerouteIpv4} reroute6=${cfg.rerouteIpv6} dns=[${dnsAddresses.join(',')}] mtu=${cfg.mtu}`);

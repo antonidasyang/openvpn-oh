@@ -8,7 +8,7 @@ import { Profile } from '../model/Profile';
 import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore } from '../model/CredentialStore';
 import { VpnController } from './VpnController';
-import { EV_STATE_CHANGED, StateChangedPayload } from './CommonEvents';
+import { EV_STATE_CHANGED, EV_TRAY_REINSTALL, StateChangedPayload } from './CommonEvents';
 import { logger } from '../util/Logger';
 
 const log = logger('TrayService');
@@ -30,6 +30,10 @@ class TrayServiceImpl {
   private unsubProfiles?: () => void;
   private lastSig: string = '';
 
+  private delay(ms: number): Promise<void> {
+    return new Promise<void>((resolve: () => void): void => { setTimeout(resolve, ms); });
+  }
+
   async init(ctx: common.UIAbilityContext): Promise<void> {
     if (this.installed) return;
     if (!canIUse('SystemCapability.PCService.StatusBarManager')) {
@@ -37,6 +41,15 @@ class TrayServiceImpl {
       return;
     }
     this.ctx = ctx;
+    // Every Entry launch reinstalls the icon (remove + re-add). Warn the
+    // keepalive process first: removing the icon it is attached to may
+    // terminate it, and it must not mistake that for a user exit (which would
+    // tear the VPN down). It restarts via holdStatusBar() below.
+    try {
+      const empty: commonEventManager.CommonEventPublishData = {};
+      commonEventManager.publish(EV_TRAY_REINSTALL, empty, (_err: BusinessError): void => { /* ignore */ });
+      await this.delay(200);
+    } catch (e) { /* ignore */ }
     // Clear any stale icon this bundle may have left behind (e.g. a previous
     // run whose exit never destroyed the process). Without this, addToStatusBar
     // can stack a second icon — each with its own menu, hence "two 退出".
@@ -139,8 +152,15 @@ class TrayServiceImpl {
     // properly destroys the process. Adding our own 退出 produced a visible
     // duplicate ("two 退出"). menuCode lives on StatusBarMenuAction (the field
     // exists on API 23 / 6.1.0; StatusBarMenuItem.menuCode is only since API24).
+    //
+    // 打开主窗口 must keep working after EntryAbility terminateSelf()s (the hide
+    // path) — notifyOnly:false makes the SYSTEM start EntryAbility on click, so
+    // no listener in the (possibly dead) UI process is required.
+    const openAction: statusBarManager.StatusBarMenuAction = {
+      abilityName: 'EntryAbility', moduleName: 'entry', notifyOnly: false, menuCode: 'open',
+    };
     const appGroup: statusBarManager.StatusBarMenuItem[] = [
-      { title: '打开主窗口', menuAction: this.action('open') },
+      { title: '打开主窗口', menuAction: openAction },
     ];
     const groups: statusBarManager.StatusBarGroupMenu[] = [];
     if (profileGroup.length > 0) groups.push(profileGroup);
@@ -239,14 +259,21 @@ class TrayServiceImpl {
     await VpnController.connect(p, kp);
   }
 
-  // Bring the (hidden) main window back to the foreground. showAbility() is the
-  // counterpart to EntryAbility's hideAbility() in onPrepareToTerminate.
+  // Bring the main window to the foreground. The hide path terminates
+  // EntryAbility (no hidden ability to showAbility() any more), so start it:
+  // singleton launch routes to onNewWant + foreground when alive, cold-starts
+  // when it was terminated.
   private openWindow(): void {
     const ctx = this.ctx;
     if (!ctx) return;
-    ctx.showAbility()
-      .then((): void => { log.info('showAbility OK'); })
-      .catch((e: Object): void => { log.warn('showAbility failed', e as Object); });
+    const want: Want = {
+      bundleName: ctx.abilityInfo.bundleName,
+      abilityName: 'EntryAbility',
+      moduleName: 'entry',
+    };
+    ctx.startAbility(want)
+      .then((): void => { log.info('openWindow: startAbility OK'); })
+      .catch((e: Object): void => { log.warn('openWindow: startAbility failed', e as Object); });
   }
 
   private async subscribeState(): Promise<void> {

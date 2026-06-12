@@ -15,6 +15,12 @@ export const EV_COMMAND_CREDS   = 'com.ovpn.harmony.cmd.creds';
 // HarmonyOS "PC 应用通过系统托盘后台保活" guide.
 export const EV_BG_TERMINATE = 'com.ovpn.harmony.bg.terminate';
 
+// EntryAbility -> BackGroundAbility: "I'm about to remove + re-add the tray
+// icon" (every Entry launch reinstalls it). Removing the icon can take the
+// attached keepalive process down with it — during this window BG must treat
+// its termination as a reinstall, NOT as a user exit (no VPN teardown).
+export const EV_TRAY_REINSTALL = 'com.ovpn.harmony.tray.reinstall';
+
 export const EV_STATE_CHANGED   = 'com.ovpn.harmony.evt.state';
 export const EV_LOG_LINE        = 'com.ovpn.harmony.evt.log';
 export const EV_STATS_UPDATE    = 'com.ovpn.harmony.evt.stats';

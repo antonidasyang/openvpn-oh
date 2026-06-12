@@ -3,7 +3,7 @@
 // process's real job is to keep the app alive while attached to the tray icon.
 @Entry
 @Component
-struct Blank {
+struct BlankPage {
   build() {
     Column() {}
     .width('100%')

@@ -18,6 +18,12 @@
         "startWindowIcon": "$media:app_icon",
         "startWindowBackground": "$color:start_bg",
         "exported": true,
+        // Hide path = onPrepareToTerminate -> terminateSelf(). By default the
+        // system keeps a mission snapshot in recent tasks after a programmatic
+        // terminate, which on 2in1/PC lingers as a taskbar entry — exactly what
+        // we are trying to remove. true => no recent-task/taskbar entry after
+        // terminateSelf; the persistent affordance is the tray icon (打开主窗口).
+        "removeMissionAfterTerminate": true,
         "backgroundModes": ["dataTransfer"],
         "skills": [
           {

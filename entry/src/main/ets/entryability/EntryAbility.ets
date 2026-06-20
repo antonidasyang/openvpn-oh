@@ -29,9 +29,12 @@ const log = logger('EntryAbility');
 //   down itself (for when we are already terminated).
 export default class EntryAbility extends UIAbility {
   private bgSubscriber?: commonEventManager.CommonEventSubscriber;
-  // True only on the real exit path (doExit). Gates killAllProcesses in
-  // onDestroy so a mere hide (hideAbility) does not kill the VPN process.
-  private fullExit: boolean = false;
+  // Tracks whether our window is currently in the foreground. This is how we
+  // tell apart the two ways onPrepareToTerminate fires:
+  //   - window in FOREGROUND  -> user clicked the X button -> minimize to tray
+  //   - window in BACKGROUND  -> app is already minimized and the user picked
+  //     the system tray/Dock 退出 -> a REAL exit, let it terminate.
+  private isForeground: boolean = false;
 
   async onCreate(want: Want, _launchParam: AbilityConstant.LaunchParam): Promise<void> {
     log.info('onCreate');
@@ -65,12 +68,22 @@ export default class EntryAbility extends UIAbility {
     }
   }
 
-  // Closing the window must NOT quit the app: hide it and stay resident (the
-  // tray + BackGroundAbility keep us running, the VPN tunnel keeps connected).
-  // Returning true cancels the system's default termination. The real exit path
-  // is the system tray/Dock 退出, handled via EV_BG_TERMINATE below.
+  onForeground(): void { this.isForeground = true; }
+  onBackground(): void { this.isForeground = false; }
+
+  // Two cases reach here (see isForeground above):
+  //  - foreground: the X button -> hide to tray (return true cancels the exit),
+  //    the window/process/VPN all stay alive; showAbility() restores it.
+  //  - background: the app is minimized and the user picked the tray/Dock 退出
+  //    -> a real exit. Return false so the system terminates us; onDestroy then
+  //    tears everything (VPN + tray keepalive) down via killAllProcesses.
   onPrepareToTerminate(): boolean {
-    log.info('onPrepareToTerminate -> hideAbility (stay resident in tray)');
+    if (!this.isForeground) {
+      log.info('onPrepareToTerminate (backgrounded) -> real exit, allow terminate');
+      return false;
+    }
+    log.info('onPrepareToTerminate (foreground) -> hideAbility (minimize to tray)');
+    this.isForeground = false;
     this.context.hideAbility()
       .then((): void => { log.info('hideAbility OK'); })
       .catch((e: BusinessError): void => { log.warn('hideAbility failed', e as Object); });
@@ -94,26 +107,26 @@ export default class EntryAbility extends UIAbility {
     }
   }
 
+  // Triggered by BackGroundAbility (EV_BG_TERMINATE) if the real exit goes
+  // through that path instead: just terminate ourselves -> onDestroy does the
+  // full teardown.
   private async doExit(): Promise<void> {
-    this.fullExit = true;
-    try { await VpnController.stop(); } catch (e) { log.warn('stop on exit failed', e as Object); }
-    try { TrayService.remove(); } catch (e) { /* ignore */ }
     try { await this.context.terminateSelf(); } catch (e) { log.warn('terminateSelf failed', e as Object); }
   }
 
+  // A minimize goes through hideAbility(), which does NOT destroy this ability,
+  // so onDestroy only ever runs on a REAL exit (tray/Dock 退出, or the system
+  // reclaiming us). Tear everything down: stop the VPN, drop the tray icon, then
+  // kill every app process (the tray keepalive included).
   async onDestroy(): Promise<void> {
-    try { await VpnController.dispose(); } catch (e) { /* ignore */ }
+    log.info('onDestroy -> full exit teardown');
     if (this.bgSubscriber) {
       try { await commonEventManager.unsubscribe(this.bgSubscriber); } catch (e) { /* ignore */ }
       this.bgSubscriber = undefined;
     }
-    // Backstop on the REAL exit only. (A hide goes through hideAbility, which
-    // does not destroy this ability, so onDestroy normally only runs on a real
-    // exit — but keep the guard in case the system destroys us on a hide.)
-    if (!this.fullExit) {
-      log.info('onDestroy without fullExit: leave VPN + tray keepalive alive');
-      return;
-    }
+    try { await VpnController.stop(); } catch (e) { log.warn('stop on exit failed', e as Object); }
+    try { await VpnController.dispose(); } catch (e) { /* ignore */ }
+    try { TrayService.remove(); } catch (e) { /* ignore */ }
     try {
       await this.context.getApplicationContext().killAllProcesses();
     } catch (e) {

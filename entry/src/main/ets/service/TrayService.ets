@@ -8,7 +8,7 @@ import { Profile } from '../model/Profile';
 import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore } from '../model/CredentialStore';
 import { VpnController } from './VpnController';
-import { EV_STATE_CHANGED, EV_TRAY_REINSTALL, StateChangedPayload } from './CommonEvents';
+import { EV_STATE_CHANGED, StateChangedPayload } from './CommonEvents';
 import { logger } from '../util/Logger';
 
 const log = logger('TrayService');
@@ -34,30 +34,19 @@ class TrayServiceImpl {
     return new Promise<void>((resolve: () => void): void => { setTimeout(resolve, ms); });
   }
 
-  async init(ctx: common.UIAbilityContext): Promise<void> {
-    if (this.installed) return;
+  // PATH B step 1 — called by EntryAbility (the bootstrapper). Add the tray icon.
+  // The item MUST exist before starting an ability attached to it (startMain).
+  async installIcon(ctx: common.UIAbilityContext): Promise<void> {
     if (!canIUse('SystemCapability.PCService.StatusBarManager')) {
       log.info('status bar not supported on this device; skipping tray');
       return;
     }
     this.ctx = ctx;
-    // Every Entry launch reinstalls the icon (remove + re-add). Warn the
-    // keepalive process first: removing the icon it is attached to may
-    // terminate it, and it must not mistake that for a user exit (which would
-    // tear the VPN down). It restarts via holdStatusBar() below.
+    // Clear any stale icon a previous run may have left behind, so addToStatusBar
+    // does not stack a second icon (each with its own system 退出).
     try {
-      const empty: commonEventManager.CommonEventPublishData = {};
-      commonEventManager.publish(EV_TRAY_REINSTALL, empty, (_err: BusinessError): void => { /* ignore */ });
-      await this.delay(200);
-    } catch (e) { /* ignore */ }
-    // Clear any stale icon this bundle may have left behind (e.g. a previous
-    // run whose exit never destroyed the process). Without this, addToStatusBar
-    // can stack a second icon — each with its own menu, hence "two 退出".
-    try {
-      if (canIUse('SystemCapability.PCService.StatusBarManager')) {
-        statusBarManager.removeFromStatusBar(ctx);
-        log.info('removeFromStatusBar (clear stale) OK');
-      }
+      statusBarManager.removeFromStatusBar(ctx);
+      log.info('removeFromStatusBar (clear stale) OK');
     } catch (e) {
       log.info('removeFromStatusBar (clear stale) skipped', JSON.stringify(e));
     }
@@ -66,9 +55,8 @@ class TrayServiceImpl {
       const item: statusBarManager.StatusBarItem = {
         icons: this.icon,
         quickOperation: {
-          // Empty abilityName => left-click shows no popup; we handle it via the
-          // 'statusBarIconClick' event and call showAbility() to surface the
-          // main window (per the HarmonyOS PC tray keepalive guide).
+          // Empty abilityName => left-click shows no popup; MainAbility handles
+          // it via the 'statusBarIconClick' event and calls showAbility().
           title: 'D2SVPN',
           height: 30,
           abilityName: '',
@@ -77,42 +65,43 @@ class TrayServiceImpl {
         statusBarGroupMenu: this.buildMenu(),
         hoverTips: 'D2SVPN',
       };
-      if (canIUse('SystemCapability.PCService.StatusBarManager')) {
-        statusBarManager.addToStatusBar(ctx, item);
-      }
+      statusBarManager.addToStatusBar(ctx, item);
       this.installed = true;
       this.lastSig = this.menuSig();   // menu already set by addToStatusBar
-      log.info('addToStatusBar OK (UI process)');
+      log.info('installIcon: addToStatusBar OK (bootstrapper)');
     } catch (e) {
-      log.error('addToStatusBar FAILED (UI process)', JSON.stringify(e));
-      return;
+      log.error('installIcon: addToStatusBar FAILED', JSON.stringify(e));
     }
-    this.registerEvents();
-    this.unsubProfiles = ProfileStore.subscribe((): void => { this.refresh(); });
-    await this.subscribeState();
-    // Start the tray-attached keepalive process so the app survives in the
-    // background (and off the taskbar) after the main window is hidden.
-    this.holdStatusBar();
   }
 
-  // Launch BackGroundAbility in a NEW process bound to the status-bar icon, kept
-  // hidden. This is what keeps the app alive on PC once EntryAbility hides its
-  // window (HarmonyOS forbids arbitrary background running otherwise).
-  private holdStatusBar(): void {
-    const ctx = this.ctx;
-    if (!ctx) return;
+  // PATH B step 2 — called by EntryAbility. Start the REAL main window as an
+  // ability ATTACHED to the tray item, shown immediately (STARTUP_SHOW). Being
+  // attached is what (a) keeps the app alive when the bootstrapper exits and
+  // (b) lets MainAbility hideAbility()/showAbility() off and onto the taskbar.
+  async startMain(ctx: common.UIAbilityContext): Promise<void> {
     const want: Want = {
       bundleName: ctx.abilityInfo.bundleName,
-      abilityName: 'BackGroundAbility',
+      abilityName: 'MainAbility',
       moduleName: 'entry',
     };
     const options: StartOptions = {
       processMode: contextConstant.ProcessMode.NEW_PROCESS_ATTACH_TO_STATUS_BAR_ITEM,
-      startupVisibility: contextConstant.StartupVisibility.STARTUP_HIDE,
+      startupVisibility: contextConstant.StartupVisibility.STARTUP_SHOW,
     };
-    ctx.startAbility(want, options)
-      .then((): void => { log.info('holdStatusBar: keepalive process started'); })
-      .catch((e: Object): void => { log.error('holdStatusBar failed', JSON.stringify(e)); });
+    await ctx.startAbility(want, options);
+    log.info('startMain: attached MainAbility started (STARTUP_SHOW)');
+  }
+
+  // PATH B step 3 — called by MainAbility (the resident process). Wire up tray
+  // click handlers + live menu/state updates from the process that stays alive.
+  async attachHandlers(ctx: common.UIAbilityContext): Promise<void> {
+    if (!canIUse('SystemCapability.PCService.StatusBarManager')) return;
+    this.ctx = ctx;
+    this.installed = true;
+    this.registerEvents();
+    this.unsubProfiles = ProfileStore.subscribe((): void => { this.refresh(); });
+    await this.subscribeState();
+    log.info('attachHandlers: tray handlers wired (resident process)');
   }
 
   private async loadIcon(ctx: common.UIAbilityContext): Promise<statusBarManager.StatusBarIcon> {
@@ -170,7 +159,7 @@ class TrayServiceImpl {
   }
 
   private action(code: string): statusBarManager.StatusBarMenuAction {
-    return { abilityName: 'EntryAbility', moduleName: 'entry', notifyOnly: true, menuCode: code };
+    return { abilityName: 'MainAbility', moduleName: 'entry', notifyOnly: true, menuCode: code };
   }
 
   // A compact signature of everything the menu depends on, so we only call

@@ -153,14 +153,11 @@ class TrayServiceImpl {
     // duplicate ("two 退出"). menuCode lives on StatusBarMenuAction (the field
     // exists on API 23 / 6.1.0; StatusBarMenuItem.menuCode is only since API24).
     //
-    // 打开主窗口 must keep working after EntryAbility terminateSelf()s (the hide
-    // path) — notifyOnly:false makes the SYSTEM start EntryAbility on click, so
-    // no listener in the (possibly dead) UI process is required.
-    const openAction: statusBarManager.StatusBarMenuAction = {
-      abilityName: 'EntryAbility', moduleName: 'entry', notifyOnly: false, menuCode: 'open',
-    };
+    // Hide path is hideAbility() (the UI process stays alive), so the in-process
+    // 'rightMenuClick' listener handles 打开主窗口 -> showAbility(). notifyOnly:true
+    // = emitter event to this live process.
     const appGroup: statusBarManager.StatusBarMenuItem[] = [
-      { title: '打开主窗口', menuAction: openAction },
+      { title: '打开主窗口', menuAction: this.action('open') },
     ];
     const groups: statusBarManager.StatusBarGroupMenu[] = [];
     if (profileGroup.length > 0) groups.push(profileGroup);
@@ -259,21 +256,14 @@ class TrayServiceImpl {
     await VpnController.connect(p, kp);
   }
 
-  // Bring the main window to the foreground. The hide path terminates
-  // EntryAbility (no hidden ability to showAbility() any more), so start it:
-  // singleton launch routes to onNewWant + foreground when alive, cold-starts
-  // when it was terminated.
+  // Bring the (hidden) main window back to the foreground. showAbility() is the
+  // counterpart to EntryAbility's hideAbility() in onPrepareToTerminate.
   private openWindow(): void {
     const ctx = this.ctx;
     if (!ctx) return;
-    const want: Want = {
-      bundleName: ctx.abilityInfo.bundleName,
-      abilityName: 'EntryAbility',
-      moduleName: 'entry',
-    };
-    ctx.startAbility(want)
-      .then((): void => { log.info('openWindow: startAbility OK'); })
-      .catch((e: Object): void => { log.warn('openWindow: startAbility failed', e as Object); });
+    ctx.showAbility()
+      .then((): void => { log.info('showAbility OK'); })
+      .catch((e: Object): void => { log.warn('showAbility failed', e as Object); });
   }
 
   private async subscribeState(): Promise<void> {

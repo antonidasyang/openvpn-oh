@@ -56,6 +56,16 @@ export default class BackGroundAbility extends UIAbility {
     stage.loadContent('pages/Blank', (err): void => {
       if (err) log.error('loadContent failed', err);
     });
+    // A tray VPN-op menu click forces this ability to the foreground (the device
+    // raises whatever a menu action names). Make the window fully transparent so
+    // that brief appearance is invisible — together with hideAbility() in
+    // onForeground, there is no visible flash.
+    try {
+      const win = stage.getMainWindowSync();
+      win.setWindowBackgroundColor('#00000000');
+    } catch (e) {
+      log.warn('setWindowBackgroundColor failed', e as Object);
+    }
   }
 
   // A tray VPN-op menu item names this ability (the device raises whatever a menu

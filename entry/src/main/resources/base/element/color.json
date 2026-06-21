@@ -1,6 +1,7 @@
 {
   "color": [
     { "name": "start_bg", "value": "#F1F3F5" },
+    { "name": "transparent_bg", "value": "#00000000" },
     { "name": "brand_primary", "value": "#0A84FF" },
     { "name": "brand_on_primary", "value": "#FFFFFF" },
     { "name": "status_connected", "value": "#34C759" },

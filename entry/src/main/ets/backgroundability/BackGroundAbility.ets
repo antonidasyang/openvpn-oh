@@ -58,6 +58,17 @@ export default class BackGroundAbility extends UIAbility {
     });
   }
 
+  // A tray VPN-op menu item names this ability (the device raises whatever a menu
+  // action names, ignoring notifyOnly). We never want to be seen: as soon as we
+  // are brought to the foreground, hide straight back. This ability was started
+  // attached to the status-bar item, so hideAbility() is valid here. The actual
+  // connect/disconnect runs from the rightMenuClick listener in EntryAbility.
+  onForeground(): void {
+    this.context.hideAbility()
+      .then((): void => { log.info('onForeground -> hideAbility (stay invisible)'); })
+      .catch((e: BusinessError): void => { log.warn('hideAbility failed', e as Object); });
+  }
+
   onPrepareToTerminate(): boolean {
     if (this.inReinstallWindow()) {
       log.info('onPrepareToTerminate during tray reinstall -> just die, no app exit');

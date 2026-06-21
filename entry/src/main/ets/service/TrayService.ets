@@ -173,13 +173,13 @@ class TrayServiceImpl {
   }
 
   private action(code: string): statusBarManager.StatusBarMenuAction {
-    // VPN ops (连接/断开/重连) must NOT raise any window. This device starts AND
-    // shows whatever abilityName a menu action names (it ignores notifyOnly), so
-    // we name NO ability (abilityName: ''). The click then only fires the
-    // 'rightMenuClick' event, which our listener handles (connectProfile / stop)
-    // — the same empty-abilityName + event pattern the left-click quickOperation
-    // already uses. menuCode still rides along to identify the item.
-    return { abilityName: '', moduleName: 'entry', notifyOnly: true, menuCode: code };
+    // This device starts AND shows whatever ability a menu action names (it
+    // ignores notifyOnly); an empty name pops a "no handler" dialog. So we point
+    // VPN ops at the hidden, windowless keepalive BackGroundAbility — which
+    // immediately hideAbility()s itself when raised (see BackGroundAbility.
+    // onForeground), so nothing stays on screen. The actual connect/stop is done
+    // by the rightMenuClick listener here; the VPN notification is the feedback.
+    return { abilityName: 'BackGroundAbility', moduleName: 'entry', notifyOnly: true, menuCode: code };
   }
 
   // A compact signature of everything the menu depends on, so we only call

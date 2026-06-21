@@ -153,11 +153,14 @@ class TrayServiceImpl {
     // duplicate ("two 退出"). menuCode lives on StatusBarMenuAction (the field
     // exists on API 23 / 6.1.0; StatusBarMenuItem.menuCode is only since API24).
     //
-    // Hide path is hideAbility() (the UI process stays alive), so the in-process
-    // 'rightMenuClick' listener handles 打开主窗口 -> showAbility(). notifyOnly:true
-    // = emitter event to this live process.
+    // 打开主窗口 SHOULD bring the main window to the foreground, so its action
+    // targets EntryAbility (the windowed ability); the in-process rightMenuClick
+    // listener also runs openWindow() -> showAbility().
+    const openAction: statusBarManager.StatusBarMenuAction = {
+      abilityName: 'EntryAbility', moduleName: 'entry', notifyOnly: true, menuCode: 'open',
+    };
     const appGroup: statusBarManager.StatusBarMenuItem[] = [
-      { title: '打开主窗口', menuAction: this.action('open') },
+      { title: '打开主窗口', menuAction: openAction },
     ];
     const groups: statusBarManager.StatusBarGroupMenu[] = [];
     if (profileGroup.length > 0) groups.push(profileGroup);
@@ -170,7 +173,12 @@ class TrayServiceImpl {
   }
 
   private action(code: string): statusBarManager.StatusBarMenuAction {
-    return { abilityName: 'EntryAbility', moduleName: 'entry', notifyOnly: true, menuCode: code };
+    // VPN ops (连接/断开/重连) must NOT raise the main window. Target the hidden,
+    // windowless BackGroundAbility: even if the device treats a menu action as
+    // "start this ability" (ignoring notifyOnly), starting BackGroundAbility shows
+    // nothing. The actual handling is done by the rightMenuClick listener, which
+    // fires regardless of the action's abilityName.
+    return { abilityName: 'BackGroundAbility', moduleName: 'entry', notifyOnly: true, menuCode: code };
   }
 
   // A compact signature of everything the menu depends on, so we only call

@@ -172,14 +172,25 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
     if (profile.autologin) {
       this.engine.startConnect();
     } else {
-      const cached = await CredentialStore.load(profile.id);
-      if (cached && cached.cached && cached.password) {
-        this.engine.provideCreds(cached.username, cached.password, true);
+      // Prefer creds carried in the Want (the UI process loaded them and passed
+      // them across — preferences is not cross-process safe, so our own
+      // CredentialStore.load below may miss them). This is what lets a saved
+      // password connect silently without an AUTH prompt.
+      const wantUser: string = (params['authUsername'] as string) ?? '';
+      const wantPass: string = (params['authPassword'] as string) ?? '';
+      if (wantPass) {
+        this.engine.provideCreds(wantUser, wantPass, true);
         this.engine.startConnect();
       } else {
-        this.broadcastState('AUTH', 'awaiting credentials', 0,
-                            this.currentProfileId, this.currentProfileName);
-        this.engine.startConnect();
+        const cached = await CredentialStore.load(profile.id);
+        if (cached && cached.cached && cached.password) {
+          this.engine.provideCreds(cached.username, cached.password, true);
+          this.engine.startConnect();
+        } else {
+          this.broadcastState('AUTH', 'awaiting credentials', 0,
+                              this.currentProfileId, this.currentProfileName);
+          this.engine.startConnect();
+        }
       }
     }
 

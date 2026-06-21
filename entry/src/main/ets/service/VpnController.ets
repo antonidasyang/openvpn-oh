@@ -4,6 +4,7 @@ import { common, Want } from '@kit.AbilityKit';
 import { BusinessError } from '@ohos.base';
 
 import { Profile } from '../model/Profile';
+import { CredentialStore } from '../model/CredentialStore';
 import { VpnState, Phase, Stats } from '../model/VpnState';
 import {
   EV_COMMAND_CONNECT, EV_COMMAND_STOP, EV_COMMAND_PAUSE, EV_COMMAND_RESUME, EV_COMMAND_CREDS,
@@ -101,6 +102,20 @@ class VpnControllerImpl {
     // Private-key password decrypts the inline client key; openvpn3 needs it on
     // the Config before parse, so it travels with the connect Want.
     if (keyPassword) params['privateKeyPassword'] = keyPassword;
+    // Auth (user/pass) credentials also travel with the Want: the extension runs
+    // in a separate process and @ohos.data.preferences is NOT cross-process safe,
+    // so CredentialStore.load() there may miss what the UI saved. Carrying the
+    // saved creds here lets a profile with a remembered password connect silently
+    // (no AUTH prompt -> no main window popping up), e.g. from the tray menu.
+    if (!profile.autologin) {
+      try {
+        const creds = await CredentialStore.load(profile.id);
+        if (creds && creds.password) {
+          params['authUsername'] = creds.username;
+          params['authPassword'] = creds.password;
+        }
+      } catch (e) { /* ignore: fall back to the extension's own lookup / AUTH */ }
+    }
     const want: Want = {
       bundleName: this.context.abilityInfo.bundleName,
       abilityName: 'OvpnVpnExtensionAbility',

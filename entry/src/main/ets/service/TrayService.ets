@@ -173,12 +173,13 @@ class TrayServiceImpl {
   }
 
   private action(code: string): statusBarManager.StatusBarMenuAction {
-    // VPN ops (连接/断开/重连) must NOT raise the main window. Target the hidden,
-    // windowless BackGroundAbility: even if the device treats a menu action as
-    // "start this ability" (ignoring notifyOnly), starting BackGroundAbility shows
-    // nothing. The actual handling is done by the rightMenuClick listener, which
-    // fires regardless of the action's abilityName.
-    return { abilityName: 'BackGroundAbility', moduleName: 'entry', notifyOnly: true, menuCode: code };
+    // VPN ops (连接/断开/重连) must NOT raise any window. This device starts AND
+    // shows whatever abilityName a menu action names (it ignores notifyOnly), so
+    // we name NO ability (abilityName: ''). The click then only fires the
+    // 'rightMenuClick' event, which our listener handles (connectProfile / stop)
+    // — the same empty-abilityName + event pattern the left-click quickOperation
+    // already uses. menuCode still rides along to identify the item.
+    return { abilityName: '', moduleName: 'entry', notifyOnly: true, menuCode: code };
   }
 
   // A compact signature of everything the menu depends on, so we only call

@@ -25,6 +25,18 @@ export const EV_STATE_CHANGED   = 'com.ovpn.harmony.evt.state';
 export const EV_LOG_LINE        = 'com.ovpn.harmony.evt.log';
 export const EV_STATS_UPDATE    = 'com.ovpn.harmony.evt.stats';
 
+// EntryAbility (tray rightMenuClick handler) -> NoticeAbility: the small toast
+// window that a tray VPN-op menu click forces open on this PC firmware (it
+// raises the named ability regardless of notifyOnly). Instead of hiding it, we
+// use it to show "正在连接 X… / 已连接 X / 已断开 X / 连接失败". `done` = terminal
+// message, NoticeAbility then auto-closes.
+export const EV_TRAY_NOTICE = 'com.ovpn.harmony.tray.notice';
+
+export interface TrayNoticePayload {
+  text: string;
+  done: boolean;
+}
+
 export interface ConnectCommandPayload {
   profileId: string;
 }

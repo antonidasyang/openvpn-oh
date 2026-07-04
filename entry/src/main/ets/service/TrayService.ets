@@ -8,7 +8,7 @@ import { Profile } from '../model/Profile';
 import { ProfileStore } from '../model/ProfileStore';
 import { CredentialStore } from '../model/CredentialStore';
 import { VpnController } from './VpnController';
-import { EV_STATE_CHANGED, EV_TRAY_REINSTALL, StateChangedPayload } from './CommonEvents';
+import { EV_STATE_CHANGED, EV_TRAY_REINSTALL, EV_TRAY_NOTICE, StateChangedPayload, TrayNoticePayload } from './CommonEvents';
 import { logger } from '../util/Logger';
 
 const log = logger('TrayService');
@@ -29,6 +29,10 @@ class TrayServiceImpl {
   private subscriber?: commonEventManager.CommonEventSubscriber;
   private unsubProfiles?: () => void;
   private lastSig: string = '';
+  // A tray 连接 is in flight: we already showed "正在连接 X…" and are waiting for a
+  // terminal state (CONNECTED / error) to push the final toast to NoticeAbility.
+  private pendingNotice: boolean = false;
+  private pendingName: string = '';
 
   private delay(ms: number): Promise<void> {
     return new Promise<void>((resolve: () => void): void => { setTimeout(resolve, ms); });
@@ -174,12 +178,12 @@ class TrayServiceImpl {
 
   private action(code: string): statusBarManager.StatusBarMenuAction {
     // This device starts AND shows whatever ability a menu action names (it
-    // ignores notifyOnly); an empty name pops a "no handler" dialog. So we point
-    // VPN ops at the hidden, windowless keepalive BackGroundAbility — which
-    // immediately hideAbility()s itself when raised (see BackGroundAbility.
-    // onForeground), so nothing stays on screen. The actual connect/stop is done
-    // by the rightMenuClick listener here; the VPN notification is the feedback.
-    return { abilityName: 'BackGroundAbility', moduleName: 'entry', notifyOnly: true, menuCode: code };
+    // ignores notifyOnly); an empty name pops a "no handler" dialog. Rather than
+    // fight it, we name NoticeAbility — a small toast window that shows
+    // 连接/断开 progress (pushed via EV_TRAY_NOTICE from dispatch below) and closes
+    // itself. The actual connect/stop still runs here in the rightMenuClick
+    // listener; NoticeAbility is only the on-screen feedback.
+    return { abilityName: 'NoticeAbility', moduleName: 'entry', notifyOnly: true, menuCode: code };
   }
 
   // A compact signature of everything the menu depends on, so we only call
@@ -254,8 +258,32 @@ class TrayServiceImpl {
     if (sep < 0) return;
     const verb = code.substring(0, sep);
     const id = code.substring(sep + 1);
-    if (verb === 'dis') { VpnController.stop(); return; }
-    if (verb === 'con' || verb === 'rec') { this.connectProfile(id); return; }
+    const p = ProfileStore.get(id);
+    const name = p ? p.displayName : '';
+    if (verb === 'dis') {
+      this.pendingNotice = false;
+      VpnController.stop();
+      this.publishNotice(`已断开 ${name}`, true);
+      return;
+    }
+    if (verb === 'con' || verb === 'rec') {
+      this.pendingName = name;
+      this.pendingNotice = true;
+      this.connectProfile(id);
+      this.publishNotice(`正在连接 ${name}…`, false);
+      return;
+    }
+  }
+
+  // Push a toast string to NoticeAbility (the window this device forces open on a
+  // tray menu click). Delayed slightly so the just-launched NoticeAbility has
+  // subscribed to EV_TRAY_NOTICE before the first message is sent.
+  private publishNotice(text: string, done: boolean): void {
+    const payload: TrayNoticePayload = { text, done };
+    const opts: commonEventManager.CommonEventPublishData = { data: JSON.stringify(payload) };
+    setTimeout((): void => {
+      commonEventManager.publish(EV_TRAY_NOTICE, opts, (_e: BusinessError): void => { /* ignore */ });
+    }, 250);
   }
 
   private async connectProfile(id: string): Promise<void> {
@@ -275,6 +303,20 @@ class TrayServiceImpl {
       .catch((e: Object): void => { log.warn('showAbility failed', e as Object); });
   }
 
+  // While a tray 连接 is pending, turn the terminal VPN state into the final
+  // toast: CONNECTED -> "已连接 X", any error -> "连接失败：…".
+  private maybeNotifyTerminal(p: StateChangedPayload): void {
+    if (!this.pendingNotice) return;
+    if (p.phase === 'CONNECTED') {
+      this.pendingNotice = false;
+      this.publishNotice(`已连接 ${this.pendingName}`, true);
+    } else if (p.phase.indexOf('ERROR') >= 0 || p.phase.indexOf('FAILED') >= 0) {
+      this.pendingNotice = false;
+      const detail = p.info ? `：${p.info}` : '';
+      this.publishNotice(`连接失败${detail}`, true);
+    }
+  }
+
   private async subscribeState(): Promise<void> {
     const info: commonEventManager.CommonEventSubscribeInfo = { events: [EV_STATE_CHANGED] };
     this.subscriber = await commonEventManager.createSubscriber(info);
@@ -285,6 +327,7 @@ class TrayServiceImpl {
           const p = JSON.parse(data.data ?? '{}') as StateChangedPayload;
           this.phase = p.phase;
           if (p.profileId) this.activeId = p.profileId;
+          this.maybeNotifyTerminal(p);
           this.refresh();
         } catch (e) { /* ignore */ }
       });

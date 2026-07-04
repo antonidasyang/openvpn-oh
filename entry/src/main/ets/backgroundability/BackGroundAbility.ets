@@ -56,27 +56,6 @@ export default class BackGroundAbility extends UIAbility {
     stage.loadContent('pages/Blank', (err): void => {
       if (err) log.error('loadContent failed', err);
     });
-    // A tray VPN-op menu click forces this ability to the foreground (the device
-    // raises whatever a menu action names). Make the window fully transparent so
-    // that brief appearance is invisible — together with hideAbility() in
-    // onForeground, there is no visible flash.
-    try {
-      const win = stage.getMainWindowSync();
-      win.setWindowBackgroundColor('#00000000');
-    } catch (e) {
-      log.warn('setWindowBackgroundColor failed', e as Object);
-    }
-  }
-
-  // A tray VPN-op menu item names this ability (the device raises whatever a menu
-  // action names, ignoring notifyOnly). We never want to be seen: as soon as we
-  // are brought to the foreground, hide straight back. This ability was started
-  // attached to the status-bar item, so hideAbility() is valid here. The actual
-  // connect/disconnect runs from the rightMenuClick listener in EntryAbility.
-  onForeground(): void {
-    this.context.hideAbility()
-      .then((): void => { log.info('onForeground -> hideAbility (stay invisible)'); })
-      .catch((e: BusinessError): void => { log.warn('hideAbility failed', e as Object); });
   }
 
   onPrepareToTerminate(): boolean {

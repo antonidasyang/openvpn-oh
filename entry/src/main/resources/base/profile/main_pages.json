@@ -4,6 +4,7 @@
     "pages/ImportConfig",
     "pages/ProfileDetail",
     "pages/LogView",
-    "pages/Blank"
+    "pages/Blank",
+    "pages/Notice"
   ]
 }

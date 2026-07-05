@@ -11,7 +11,7 @@
 - API version：________（`const.ohos.apiversion`）
 - DevEco Studio 版本：________
 - SDK 版本：________
-- 应用 bundleName：com.d2ssoft.ovpn
+- 应用 bundleName：com.d2ssoft.ovpnclient
 
 ## 相关接口
 - Kit：DesktopExtensionKit，模块 `@hms.pcService.statusBarManager`

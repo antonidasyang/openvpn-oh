@@ -80,6 +80,8 @@ export default class NoticeAbility extends UIAbility {
     stage.getMainWindow().then((win: window.Window): void => {
       // Drop the title bar (2in1 only; guarded so phone/tablet just skip it).
       try { win.setWindowDecorVisible(false); } catch (e) { log.warn('decor hide skipped', e as Object); }
+      // Fill the whole window (no top status-bar inset) so the text centers true.
+      win.setWindowLayoutFullScreen(true).catch((e: Object): void => { log.warn('layoutFullScreen skipped', e); });
       win.resize(w, h).then((): void => {
         let x: number = 0;
         let y: number = 0;

@@ -65,22 +65,19 @@ export default class NoticeAbility extends UIAbility {
   }
 
   onWindowStageCreate(stage: window.WindowStage): void {
-    stage.loadContent('pages/Notice', (err): void => {
-      if (err) log.error('loadContent failed', err);
-    });
-    this.styleToast(stage);
+    this.setupWindow(stage);
   }
 
-  // Small, title-bar-less, screen-centered toast window. Uses the ASYNC
-  // getMainWindow() so the window is fully ready — an early sync resize had
-  // collapsed it into a sliver.
-  private styleToast(stage: window.WindowStage): void {
+  // Small, title-bar-less, screen-centered toast window. IMPORTANT: resize the
+  // window BEFORE loadContent — otherwise the page lays out at the initial window
+  // height and height('100%') does not re-measure on resize, leaving the text
+  // anchored at the top. Uses the ASYNC getMainWindow() so the window is ready.
+  private setupWindow(stage: window.WindowStage): void {
     const w: number = 440;
-    const h: number = 190;
+    const h: number = 260;
     stage.getMainWindow().then((win: window.Window): void => {
       // Drop the title bar (2in1 only; guarded so phone/tablet just skip it).
       try { win.setWindowDecorVisible(false); } catch (e) { log.warn('decor hide skipped', e as Object); }
-      // Fill the whole window (no top status-bar inset) so the text centers true.
       win.setWindowLayoutFullScreen(true).catch((e: Object): void => { log.warn('layoutFullScreen skipped', e); });
       win.resize(w, h).then((): void => {
         let x: number = 0;
@@ -91,8 +88,15 @@ export default class NoticeAbility extends UIAbility {
           y = Math.max(0, Math.round((d.height - h) / 2));
         } catch (e) { log.warn('display size failed', e as Object); }
         win.moveWindowTo(x, y).catch((e: Object): void => { log.warn('move failed', e); });
-      }).catch((e: Object): void => { log.warn('resize failed', e); });
-    }).catch((e: Object): void => { log.warn('getMainWindow failed', e); });
+        this.loadPage(stage);   // load AFTER the final size is set
+      }).catch((e: Object): void => { log.warn('resize failed', e); this.loadPage(stage); });
+    }).catch((e: Object): void => { log.warn('getMainWindow failed', e); this.loadPage(stage); });
+  }
+
+  private loadPage(stage: window.WindowStage): void {
+    stage.loadContent('pages/Notice', (err): void => {
+      if (err) log.error('loadContent failed', err);
+    });
   }
 
   async onDestroy(): Promise<void> {

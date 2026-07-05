@@ -1,5 +1,6 @@
 import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
+import display from '@ohos.display';
 import commonEventManager from '@ohos.commonEventManager';
 import { BusinessError } from '@ohos.base';
 import { EV_TRAY_NOTICE, TrayNoticePayload } from '../service/CommonEvents';
@@ -67,11 +68,28 @@ export default class NoticeAbility extends UIAbility {
     stage.loadContent('pages/Notice', (err): void => {
       if (err) log.error('loadContent failed', err);
     });
-    // Shrink to a small toast, just big enough for the text. Use the ASYNC
-    // getMainWindow() so the window is fully ready — the earlier SYNC resize ran
-    // too early and collapsed the window into a thin sliver.
+    this.styleToast(stage);
+  }
+
+  // Small, title-bar-less, screen-centered toast window. Uses the ASYNC
+  // getMainWindow() so the window is fully ready — an early sync resize had
+  // collapsed it into a sliver.
+  private styleToast(stage: window.WindowStage): void {
+    const w: number = 440;
+    const h: number = 190;
     stage.getMainWindow().then((win: window.Window): void => {
-      win.resize(340, 150).catch((e: Object): void => { log.warn('resize failed', e); });
+      // Drop the title bar (2in1 only; guarded so phone/tablet just skip it).
+      try { win.setWindowDecorVisible(false); } catch (e) { log.warn('decor hide skipped', e as Object); }
+      win.resize(w, h).then((): void => {
+        let x: number = 0;
+        let y: number = 0;
+        try {
+          const d: display.Display = display.getDefaultDisplaySync();
+          x = Math.max(0, Math.round((d.width - w) / 2));
+          y = Math.max(0, Math.round((d.height - h) / 2));
+        } catch (e) { log.warn('display size failed', e as Object); }
+        win.moveWindowTo(x, y).catch((e: Object): void => { log.warn('move failed', e); });
+      }).catch((e: Object): void => { log.warn('resize failed', e); });
     }).catch((e: Object): void => { log.warn('getMainWindow failed', e); });
   }
 

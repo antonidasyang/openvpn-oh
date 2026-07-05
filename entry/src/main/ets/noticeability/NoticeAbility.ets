@@ -67,14 +67,9 @@ export default class NoticeAbility extends UIAbility {
     stage.loadContent('pages/Notice', (err): void => {
       if (err) log.error('loadContent failed', err);
     });
-    // Keep it small — a toast, not a full window.
-    try {
-      const win = stage.getMainWindowSync();
-      win.resize(360, 132)
-        .catch((e: Object): void => { log.warn('resize failed', e); });
-    } catch (e) {
-      log.warn('getMainWindowSync failed', e as Object);
-    }
+    // NOTE: an early getMainWindowSync().resize() collapsed the window into a
+    // thin sliver (no room for the text). Leave the window at its natural size
+    // for now — correctness first; we shrink it to a proper toast afterwards.
   }
 
   async onDestroy(): Promise<void> {

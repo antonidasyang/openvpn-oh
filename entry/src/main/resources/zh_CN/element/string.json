@@ -1,9 +1,9 @@
 {
   "string": [
-    { "name": "module_desc", "value": "Ovpn 客户端模块" },
-    { "name": "entry_ability_desc", "value": "Ovpn 客户端" },
-    { "name": "vpn_service_label", "value": "Ovpn 隧道" },
-    { "name": "vpn_service_desc", "value": "运行 Ovpn 隧道的后台服务" },
+    { "name": "module_desc", "value": "OVPN 客户端模块" },
+    { "name": "entry_ability_desc", "value": "OVPN 客户端" },
+    { "name": "vpn_service_label", "value": "OVPN 隧道" },
+    { "name": "vpn_service_desc", "value": "运行 OVPN 隧道的后台服务" },
 
     { "name": "title_profiles", "value": "配置文件" },
     { "name": "title_import", "value": "导入 .ovpn 配置" },

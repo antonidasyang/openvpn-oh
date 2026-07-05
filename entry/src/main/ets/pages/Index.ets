@@ -111,7 +111,7 @@ struct Index {
     if (this.state.phase !== 'DISCONNECTED') {
       Row() {
         Column({ space: 4 }) {
-          Text(this.state.activeProfileName || 'Ovpn客户端')
+          Text(this.state.activeProfileName || 'OVPN客户端')
             .fontSize(14)
             .fontColor($r('app.color.on_surface_dim'))
           StatusPill({ phase: this.state.phase })

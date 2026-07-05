@@ -73,13 +73,13 @@ class TrayServiceImpl {
           // Empty abilityName => left-click shows no popup; we handle it via the
           // 'statusBarIconClick' event and call showAbility() to surface the
           // main window (per the HarmonyOS PC tray keepalive guide).
-          title: 'Ovpn客户端',
+          title: 'OVPN客户端',
           height: 30,
           abilityName: '',
           moduleName: 'entry',
         },
         statusBarGroupMenu: this.buildMenu(),
-        hoverTips: 'Ovpn客户端',
+        hoverTips: 'OVPN客户端',
       };
       if (canIUse('SystemCapability.PCService.StatusBarManager')) {
         statusBarManager.addToStatusBar(ctx, item);

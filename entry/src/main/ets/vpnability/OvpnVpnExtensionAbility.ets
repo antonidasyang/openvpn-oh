@@ -281,9 +281,9 @@ export default class OvpnVpnExtensionAbility extends VpnExtensionAbility {
                         this.currentProfileId, this.currentProfileName);
     // Keep the ongoing "tray" notification in sync with the tunnel state.
     if (ev.name === 'CONNECTED') {
-      VpnNotification.show('D2SVPN', `已连接 ${this.currentProfileName}`, this.currentProfileId);
+      VpnNotification.show('Ovpn客户端', `已连接 ${this.currentProfileName}`, this.currentProfileId);
     } else if (ev.name === 'RECONNECTING') {
-      VpnNotification.show('D2SVPN', `重新连接 ${this.currentProfileName}…`, this.currentProfileId);
+      VpnNotification.show('Ovpn客户端', `重新连接 ${this.currentProfileName}…`, this.currentProfileId);
     }
     if (ev.name === 'DISCONNECTED' || ev.fatal) {
       this.stopStatsTimer();

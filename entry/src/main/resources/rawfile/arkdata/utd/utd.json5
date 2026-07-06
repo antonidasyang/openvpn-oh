@@ -1,11 +1,11 @@
 {
   "UniformDataTypeDeclarations": [
     {
-      "typeId": "com.d2ssoft.ovpnclient.ovpn",
-      "belongingToTypes": ["general.plain-text"],
-      "filenameExtensions": [".ovpn"],
-      "mimeTypes": ["application/x-openvpn-profile"],
-      "description": "OpenVPN 配置文件"
+      "TypeId": "com.d2ssoft.ovpnclient.ovpn",
+      "BelongingToTypes": ["general.plain-text"],
+      "FilenameExtensions": [".ovpn"],
+      "MIMETypes": ["application/x-openvpn-profile"],
+      "Description": "OpenVPN 配置文件"
     }
   ]
 }

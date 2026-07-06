@@ -5,6 +5,7 @@
     "pages/ProfileDetail",
     "pages/LogView",
     "pages/Blank",
-    "pages/Notice"
+    "pages/Notice",
+    "pages/About"
   ]
 }

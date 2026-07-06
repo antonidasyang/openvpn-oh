@@ -44,6 +44,18 @@ struct Index {
     if (this.mqListener) this.mqListener.off('change');
   }
 
+  // Fires on cold start and every time this page resurfaces. If a .ovpn file was
+  // opened with us (EntryAbility stashed its uri), route to the import screen
+  // with the uri so it reads + pre-fills the config.
+  onPageShow(): void {
+    const uri: string = AppStorage.get<string>('pendingImportUri') ?? '';
+    if (uri.length > 0) {
+      AppStorage.setOrCreate<string>('pendingImportUri', '');
+      this.getUIContext().getRouter().pushUrl({ url: 'pages/ImportConfig', params: { importUri: uri } })
+        .catch((e: Object): void => { console.error('nav to import failed', JSON.stringify(e)); });
+    }
+  }
+
   build() {
     if (this.isWide) {
       this.WideLayout()

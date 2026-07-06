@@ -156,6 +156,16 @@ struct ImportConfig {
 
   // ----- Logic -----
 
+  // Opened via the system "打开方式" on a .ovpn file: Index routes here with the
+  // file uri as a param; read + pre-fill it for review.
+  aboutToAppear(): void {
+    const params = this.getUIContext().getRouter().getParams() as Record<string, Object> | undefined;
+    const uri: string = params ? ((params['importUri'] as string) ?? '') : '';
+    if (uri.length > 0) {
+      this.loadFromUri(uri);
+    }
+  }
+
   private async pickFile(): Promise<void> {
     try {
       const opts = new picker.DocumentSelectOptions();
@@ -163,21 +173,31 @@ struct ImportConfig {
       const docPicker = new picker.DocumentViewPicker();
       const uris = await docPicker.select(opts);
       if (!uris || uris.length === 0) return;
-      const fd = fs.openSync(uris[0], fs.OpenMode.READ_ONLY).fd;
+      await this.loadFromUri(uris[0]);
+    } catch (e) {
+      log.error('pickFile failed', e as Object);
+      this.evalError = (e as Error).message ?? String(e);
+    }
+  }
+
+  // Read an .ovpn file from a uri (from the picker or a file-open want) and
+  // pre-fill the form.
+  private async loadFromUri(uri: string): Promise<void> {
+    try {
+      const fd = fs.openSync(uri, fs.OpenMode.READ_ONLY).fd;
       const stat = fs.statSync(fd);
       const buf = new ArrayBuffer(stat.size);
       fs.readSync(fd, buf);
       fs.closeSync(fd);
       this.configText = util.TextDecoder.create('utf-8').decodeToString(new Uint8Array(buf));
       if (!this.displayName) {
-        const path = uris[0];
-        const slash = path.lastIndexOf('/');
-        const base = path.substring(slash + 1).replace(/\.(ovpn|conf)$/i, '');
+        const slash = uri.lastIndexOf('/');
+        const base = uri.substring(slash + 1).replace(/\.(ovpn|conf)$/i, '');
         this.displayName = base;
       }
       this.evaluate();
     } catch (e) {
-      log.error('pickFile failed', e as Object);
+      log.error('loadFromUri failed', e as Object);
       this.evalError = (e as Error).message ?? String(e);
     }
   }

@@ -23,6 +23,17 @@
           {
             "entities": ["entity.system.home"],
             "actions": ["action.system.home"]
+          },
+          {
+            "actions": ["ohos.want.action.viewData"],
+            "uris": [
+              {
+                "scheme": "file",
+                "utd": "com.d2ssoft.ovpnclient.ovpn",
+                "maxFileSupported": 1,
+                "linkFeature": "FileOpen"
+              }
+            ]
           }
         ]
       },

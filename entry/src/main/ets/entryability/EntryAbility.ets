@@ -48,10 +48,23 @@ export default class EntryAbility extends UIAbility {
     }
     await this.subscribeBgTerminate();
     await this.handleNotifAction(want);
+    this.handleFileOpen(want);
   }
 
   async onNewWant(want: Want, _launchParam: AbilityConstant.LaunchParam): Promise<void> {
     await this.handleNotifAction(want);
+    this.handleFileOpen(want);
+  }
+
+  // A .ovpn file was opened with us (系统"打开方式" -> viewData). Stash the file
+  // uri; the Index page picks it up and routes to the import screen, which reads
+  // the file and pre-fills the config for review.
+  private handleFileOpen(want: Want): void {
+    const uri: string = want.uri ?? '';
+    if (uri.length > 0) {
+      log.info('file open want', uri);
+      AppStorage.setOrCreate<string>('pendingImportUri', uri);
+    }
   }
 
   // Act on a tap from the tray/notification reconnect action.

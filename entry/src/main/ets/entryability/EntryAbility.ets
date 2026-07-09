@@ -14,15 +14,19 @@ import { EV_BG_TERMINATE } from '../service/CommonEvents';
 const log = logger('EntryAbility');
 
 // PC tray keepalive model (see HarmonyOS "PC 应用通过系统托盘后台保活"):
-// - Closing the window is intercepted in onPrepareToTerminate -> hideAbility(),
-//   so the window goes away but the whole app stays ALIVE: the VPN tunnel keeps
-//   running (its own VpnExtensionAbility process) and the tray icon stays
-//   (BackGroundAbility keepalive process). hideAbility does NOT destroy this
-//   ability, so showAbility() brings the same window back instantly.
-// - NOTE: terminateSelf() was tried (per Huawei support, to drop the taskbar
-//   icon) but it EXITS the whole app — tray keepalive + VPN both die. Confirmed
-//   on device 2026-06. So we are back to hideAbility; the lingering taskbar icon
-//   is a known limitation pending the correct off-taskbar-while-alive API.
+// - Closing the window (X) is intercepted in onPrepareToTerminate -> hideAbility(),
+//   which hides the window AND removes the taskbar icon, while the whole app stays
+//   ALIVE: the VPN tunnel keeps running (its own VpnExtensionAbility process) and
+//   the tray icon stays (BackGroundAbility keepalive process). hideAbility does NOT
+//   destroy this ability, so showAbility() brings the same window back instantly.
+//   Why the taskbar icon drops: hideAbility/showAbility are only valid on a
+//   status-bar-ATTACHED ability, and TrayService.init() calls
+//   statusBarManager.addToStatusBar() on THIS ability's context first — that is
+//   what attaches us. Confirmed removing the taskbar icon on device 2026-07.
+// - NOTE: terminateSelf() was tried earlier (per Huawei support, to drop the
+//   taskbar icon) but it EXITS the whole app — tray keepalive + VPN both die
+//   (confirmed on device 2026-06). hideAbility is the right tool; window.minimize()
+//   would only minimize INTO the taskbar (keeps the entry), so it is not used.
 // - Tray left-click / 打开主窗口 -> showAbility() restores the window.
 // - A real exit (system tray / Dock 退出) terminates BackGroundAbility, which
 //   publishes EV_BG_TERMINATE (for when we are alive) and also tears everything
